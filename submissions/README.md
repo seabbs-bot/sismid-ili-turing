@@ -17,12 +17,22 @@ Per Sam: stop submitting rounds to the reichlab hub for now; keep all round
 work on this repo. Continue developing, scoring (leak-free), and archiving
 code + the leaderboard here, but open no new hub PRs until Sam says go.
 
-Two submissions are already merged upstream: `seabbs_bot-season` (#79, clean)
-and `seabbs_bot-seasstack` (#80). #80 merged before it could be pulled back
-after the leakage below was found — its **test-season** forecasts (the held-out
-evaluation) use the ≤2016 profile and are leak-free; only its validation-season
-portion and our selection were affected. A leak-free correction is being
-prepared here and held for Sam's decision.
+Two submissions are already merged upstream: `seabbs_bot-season` (#79) and
+`seabbs_bot-seasstack` (#80), both with some validation-season leakage found
+after merge (test-season forecasts stay leak-free in both, since the ≤2016
+profiles are all-past for test origins):
+
+- **#80 seasstack**: the pooled *seasonal shape* leaked (bigger). Honest
+  leak-free score 0.2891 (was advertised 0.2601).
+- **#79 season**: its per-origin *climatology* is leak-free, but its *backfill*
+  revision profile was built once from `season_year ≤ 2016`, which includes
+  validation season 2 — so the backfill correction leaks within-season-2 future
+  weeks for season-2 splits. Milder (a small pooled delay-indexed correction),
+  but real; #79 is not fully clean as previously recorded.
+
+The canonical leak-free builders now live in `src/seasonal.jl` (per-origin,
+forecast-origin-gated, with regression tests). Leak-free corrections for both
+are prepared/preparable here and held for Sam's decision; no hub PRs until then.
 
 ## Submission process (every submission, no exceptions)
 

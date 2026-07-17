@@ -18,8 +18,30 @@ archived in `submissions/<model_id>/`.
 | 0 | `nfidd-ar6` | Plain AR(6) per location, fourth-root | 0.368 / 0.106 | 5 seasons | [#62](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/62) + [#70](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/70) | pass | merged |
 | 1 | `nfidd-ar6bf` | AR(6) + non-monotonic backfill correction | 0.359 / 0.103 | val (test ext. in flight) | [#67](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/67) | pass | merged |
 | 2 | `seabbs_bot-season` | Pooled seasonal climatology + AR(6) + backfill | **0.30** / 0.389 | 140 dates | [#79](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/79) | running | submitted (−16% vs ar6bf) |
-| 3 | `nfidd-seasarbf` (next) | Pooled seasonal + AR(6) + backfill (core) | **0.2781** / 0.334 | 5 seasons | pending | tbd | best seasonal (−22.5%); making hub-format |
-| 4+ | _next-round candidates_ | conformal / feature-ridge / robust-climatology / cluster-pooled / drift / severity / ensemble / non-AR | pending (aim < 0.278) | 5 seasons | tbd | tbd | wide wave iterating |
+| 3 | `nfidd-seasstack` | Seasonal + backfill + log + Student-t intervals + AR **pooling** | **0.2601** / 0.259 | 5 seasons | submitting | tbd | round-2 winner (−28% vs ar6bf) |
+| 4+ | _round-3 candidates_ | damped-local-level residual + stack / conformal / feature-ridge / robust/cluster climatology / severity | pending (aim < 0.260) | 5 seasons | tbd | tbd | wide wave iterating |
+
+### What the search has established (answers to the model-structure questions)
+
+- **Seasonality**: the dominant lever (~18% of WIS). A shared/pooled week-of-season
+  climatology (not per-location Fourier, which overfits the ~2-season window).
+- **Backfill correction**: robust ~2–3% gain, concentrated in the most-revised
+  Regions 2 and 9; propagating nowcast uncertainty also improves calibration.
+- **Partial pooling**: helps, and **more once seasonality is removed** — the
+  deseasonalised AR residual is homogeneous across locations, so aggressive pooling
+  (w≈0.9) earns its keep (vs w≈0.5 on raw data, where it was marginal).
+- **Time-varying AR**: **does not help** — monotonic degradation under discounting/
+  rolling windows; the 104-week window is already just the recent 2-season regime.
+  A genuine negative result, verified across AR orders and two mechanisms.
+- **Differencing**: hurts (compounds innovation variance vs a mean-reverting level).
+- **Transform**: `log` beats fourth-root on WIS (~2.5%) despite fourth-root being more
+  variance-stabilising — WIS rewards a tighter bulk fit.
+- **Intervals**: parametric AR intervals badly under-cover (50%→41%); Student-t /
+  conformal / per-horizon width calibration fix it (~2–3.5%).
+- **Residual dynamics**: a non-AR **damped local level** (0.2644) beats the AR(6)
+  residual (0.2781) — a diverse, better base for round 3.
+- **Ensembles**: did not beat the best single seasonal model here (members too
+  correlated).
 | — | `seabbs_bot-round1` (Turing) | Joint partial-pooling Turing model (base-tight) | tbd | 5 seasons | tbd | tbd | scoring |
 
 Closed (not shipped): #71 (Fourier overwrote the baseline and scored worse,

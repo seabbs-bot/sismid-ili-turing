@@ -70,6 +70,35 @@ function backfill_profile(anchor, steps::AbstractVector)
 end
 
 """
+    observation_index(d::ModelData)
+
+Precompute the flat set of non-missing `(t, l)` observation cells in
+`d.Y`, once, from data alone (no sampled parameters involved). Returns
+a `NamedTuple` `(obs_idx, r_idx, yobs)`:
+
+- `obs_idx`: `CartesianIndex{2}` vector into `d.Y` / `latent` (shape
+  `T x L`) for every non-missing cell, in the same order the old
+  `for l in 1:L, t in 1:T` loop visited them (column-major, so `l`
+  varies slowest) — irrelevant to the log-density since summation is
+  commutative, but kept for a stable, checkable ordering.
+- `r_idx`: the matching `CartesianIndex{2}` vector into `r` (shape
+  `Dmax+1 x L`), i.e. `(d.delay[i] + 1, i[2])` for each `i` in
+  `obs_idx`.
+- `yobs`: the gathered observed values as a concrete `Vector{Float64}`.
+
+`base_model` takes this as a keyword argument defaulting to
+`observation_index(d)`, so it is evaluated once when the `Model` is
+constructed (a plain Julia default-argument evaluation), not
+re-derived on every log-density/gradient evaluation during sampling.
+"""
+function observation_index(d::ModelData)
+    obs_idx = findall(!ismissing, d.Y)
+    yobs = Float64.(d.Y[obs_idx])
+    r_idx = [CartesianIndex(d.delay[i] + 1, i[2]) for i in obs_idx]
+    return (; obs_idx, r_idx, yobs)
+end
+
+"""
     base_model(d::ModelData; transform=:log, difference=false)
 
 The base joint Turing model: partially-pooled week-of-season
@@ -97,6 +126,10 @@ informative priors and hierarchical, partially-pooled variances.
   partially-pooled around it. The observation model is
   `Y[t, l] ~ Normal(latent[t, l] + r[delay[t, l], l], sigma_obs)` for
   every non-missing cell; missing cells contribute no likelihood term.
+  This is evaluated as a single vectorised observe over all non-missing
+  cells at once (see [`observation_index`](@ref)), not a scalar loop,
+  so Mooncake traces one observe statement per gradient step instead
+  of one per non-missing cell.
 
 `transform` is not used inside the model (`d.Y` is already on the
 modelling scale), but is threaded through to the returned `NamedTuple`
@@ -112,8 +145,10 @@ project `latent` forward (continue the AR/difference recursion with
 apply `r`/`r_pop` to nowcast the most recent, partially-observed weeks.
 """
 @model function base_model(d::ModelData; transform::Symbol=:log,
-                            difference::Bool=false)
+                            difference::Bool=false,
+                            obsdata=observation_index(d))
     T, L, W, S, Dmax = model_dims(d)
+    obs_idx, r_idx, yobs = obsdata.obs_idx, obsdata.r_idx, obsdata.yobs
 
     # --- Seasonality: partially-pooled week-of-season random effect ---
     mu0 ~ Normal(0, 2)
@@ -164,12 +199,8 @@ apply `r`/`r_pop` to nowcast the most recent, partially-observed weeks.
 
     sigma_obs ~ truncated(Normal(0, 1); lower=0)
 
-    for l in 1:L, t in 1:T
-        if !ismissing(d.Y[t, l])
-            mean_obs = latent[t, l] + r[d.delay[t, l] + 1, l]
-            d.Y[t, l] ~ Normal(mean_obs, sigma_obs)
-        end
-    end
+    mu_obs = latent[obs_idx] .+ r[r_idx]
+    yobs ~ arraydist(Normal.(mu_obs, sigma_obs))
 
     return (;
         latent, seasonal, residual, mu0, mu_w, delta, season_eff,

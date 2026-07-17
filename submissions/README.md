@@ -17,8 +17,8 @@ archived in `submissions/<model_id>/`.
 |---|---|---|---|---|---|---|---|
 | 0 | `nfidd-ar6` | Plain AR(6) per location, fourth-root | 0.368 / 0.106 | 5 seasons | [#62](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/62) + [#70](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/70) | pass | merged |
 | 1 | `nfidd-ar6bf` | AR(6) + non-monotonic backfill correction | 0.359 / 0.103 | val (test ext. in flight) | [#67](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/67) | pass | merged |
-| 2 | `seabbs_bot-season` | Pooled seasonal climatology + AR(6) + backfill | **0.30** / 0.389 | 140 dates | [#79](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/79) | running | submitted (−16% vs ar6bf) |
-| 3 | `nfidd-seasstack` | Seasonal + backfill + log + Student-t intervals + AR **pooling** | **0.2601** / 0.259 | 5 seasons | submitting | tbd | round-2 winner (−28% vs ar6bf) |
+| 2 | `seabbs_bot-season` | Pooled seasonal climatology + AR(6) + backfill | **0.30** / 0.389 | 140 dates | [#79](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/79) | pass | **merged** (−16% vs ar6bf) |
+| 3 | `seabbs_bot-seasstack` | Seasonal + backfill + log + Student-t intervals + AR **pooling** (w=0.9) | **0.2601** / 0.259 | 140 dates | [#80](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/80) | running | submitted (−28% vs ar6bf); cov50 .57 cov90 .94 |
 | 4+ | _round-3 candidates_ | damped-local-level residual + stack / conformal / feature-ridge / robust/cluster climatology / severity | pending (aim < 0.260) | 5 seasons | tbd | tbd | wide wave iterating |
 
 ### What the search has established (answers to the model-structure questions)

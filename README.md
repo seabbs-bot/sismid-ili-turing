@@ -35,7 +35,8 @@ Read these in order.
 4. [`docs/steer-log.md`](docs/steer-log.md) — a running record of Sam's
    guidance and the action taken in response.
 5. [`docs/eda/`](docs/eda/) — exploratory analysis, revisited across search
-   rounds rather than fixed once.
+   rounds rather than fixed once, with committed plots under
+   `docs/eda/figures/`.
 6. [`reports/`](reports/) — one report per iteration loop, plus a running index.
 
 A Documenter site (see `docs/infrastructure.md`) will render the Julia API
@@ -43,8 +44,15 @@ docs and link all of the above in one nav.
 
 ## Status
 
-Phase 0 (setup): in progress. See [`docs/plan.md`](docs/plan.md) for the phase
-checklist.
+Phase 0 (setup) and Phase 1 (machinery) are done.
+The base model fits via Pathfinder and Mooncake, and the full
+fit -> forecast -> score pipeline has run end to end on real data
+(a season-1 validation split, all 11 locations), producing a valid
+11x4x23 hub table with mean WIS ~0.29.
+Phase 2 (tree search) is in progress: Round 1 runs five variants
+(`v1-ar-high`, `v2-mvn-season`, `v3-diff`, `v4-tv-ar`, `v5-backfill`)
+through a resilient round-runner engine.
+See [`docs/plan.md`](docs/plan.md) for the full phase checklist.
 
 ## Repository layout
 

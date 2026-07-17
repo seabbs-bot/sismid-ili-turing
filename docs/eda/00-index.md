@@ -20,9 +20,14 @@ here as fixed, and reports should be extended (not just read) as
 new questions come up during the search.
 
 - [[01-series-overview]] - the 11 locations, scales, season
-  definition, missingness, and a comparison of `log1p` / logit /
-  fourth-root transforms.
-  `log1p`-style log is the recommended default scale.
+  definition, missingness, and a variance-stabilisation-led
+  comparison of `log` / `log1p` / logit / fourth-root transforms
+  (Taylor's power law and Box-Cox fits).
+  Fourth-root is the recommended default scale: the fitted power
+  (Taylor's-law `lambda~1.8`, Box-Cox `lambda~0.13`) sits between
+  `log` and fourth-root, but a direct flatness comparison shows
+  fourth-root clearly outperforms `log`/`log1p` at stabilising
+  variance in this data.
 - [[02-backfill]] - the reporting/revision process from the versions
   data: revision size by delay, non-monotonic direction, and
   variation by location and season phase.

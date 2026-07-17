@@ -74,7 +74,99 @@ Region 10 (5 each), always in summer troughs.
 Any log-family transform needs an offset or a `log1p`-style
 formulation to handle these exact zeros.
 
-## Transform comparison
+## Transform comparison: variance stabilisation (primary criterion)
+
+The transform choice is decided on variance-stabilisation grounds,
+not skewness alone, since skewness only tells us the marginal shape
+is asymmetric, not whether the noise scale tracks the mean the way
+each candidate transform assumes.
+`log` variance-stabilises only if `SD(wILI) ∝ mean(wILI)^1`
+(a lognormal-like law); `sqrt` if `SD ∝ mean^0.5` (Poisson-like);
+`fourth-root` sits in between.
+We estimate the actual mean-variance law empirically (Taylor's power
+law) and via Box-Cox, both on validation-period data only.
+
+**Method.** For each (location, `woy`) cell, we have up to 13
+independent observations (one per season, 2004-2016).
+We compute the local mean and local variance of wILI within each
+cell (n >= 8 seasons required) and regress `log(variance)` on
+`log(mean)`: the slope `lambda` implies `variance ∝ mean^lambda`,
+and the variance-stabilising power transform is `p = 1 - lambda/2`
+(`p=0` is log, `p=0.25` is fourth-root, `p=0.5` is sqrt, `p=1` is no
+transform).
+Separately, we fit a Box-Cox `lambda` by direct maximum likelihood
+on the positive wILI values (excluding the 10 exact zeros).
+
+**Results.**
+
+| method | pooled estimate | implied power `p` | per-location range |
+|---|---|---|---|
+| Taylor's power law (`lambda`) | 1.77 (R² = 0.55) | 0.12 | 0.91 (Region 9) to 3.17 (Region 5) |
+| Box-Cox `lambda` (MLE) | 0.13 | 0.13 | -0.40 (Region 5) to 0.29 (Region 9) |
+
+Both methods agree closely: the pooled fitted power is ~0.12-0.13,
+between `log` (`p=0`) and fourth-root (`p=0.25`), notably closer to
+`log`.
+So the textbook "Poisson-like, use sqrt" story is not quite right
+for this data — the pooled mean-variance law (`lambda` ~1.8) is
+closer to lognormal (`lambda=2`) than Poisson (`lambda=1`) — but
+there is real per-location heterogeneity: Region 9 alone is close to
+genuinely Poisson-like (`lambda=0.91`, `p=0.55`), while Region 5 and
+Region 6 are more extreme than lognormal (`lambda` 2.8-3.2,
+`p` negative).
+
+**Direct flatness comparison.** We also transformed the raw values
+under each candidate and re-measured local-cell SD against the raw
+local mean (same cells as above), reporting the regression slope of
+`log(local SD)` on `log(raw local mean)` (0 = perfectly flat) and the
+ratio of mean local SD between the highest and lowest mean quintile
+(1 = perfectly flat):
+
+| transform | slope | quintile max/min ratio |
+|---|---|---|
+| fitted Box-Cox power (`p=0.13`) | -0.02 | 1.11 |
+| fourth-root (`p=0.25`) | 0.11 | 1.18 |
+| logit (on wili/100) | -0.16 | 1.48 |
+| `log` (`to_scale(w, :log)`, EPS floor) | -0.18 | 1.52 |
+| `log1p` | 0.35 | 1.77 |
+| sqrt (`p=0.5`, not in `TRANSFORMS`) | 0.38 | 1.93 |
+| identity (no transform) | 0.88 | 4.51 |
+
+**Fourth-root is the flattest of the transforms currently in
+`src/core.jl`'s `TRANSFORMS`**, clearly better than `log` (slope
+magnitude 0.11 vs 0.18, quintile ratio 1.18 vs 1.52) and much better
+than `log1p` (0.35, ratio 1.77 — `log1p`'s `+1` shift matters at
+these small percentage-scale values and pulls its behaviour toward
+`identity`/`sqrt`, which is why it under-stabilises here despite
+cutting skewness well in the section below).
+`logit` performs similarly to `log` (both roughly comparable, both
+clearly worse than fourth-root) for the same reason noted before:
+in this data it never approaches its 100% bound, so it behaves like
+a log transform rather than exploiting genuine boundedness.
+The best-fitting continuous power (`p~0.13`) would do slightly
+better still, but that transform does not exist in `TRANSFORMS`
+(only `log`, `log1p`, `logit`, `fourthroot` are implemented) and is
+close enough to `log` that it is not worth adding a fifth transform
+for.
+`sqrt` is *not* in `TRANSFORMS` either, and this data does not
+support adding it: it is empirically worse than fourth-root and
+even slightly worse than `log1p` here, because the pooled
+mean-variance law is closer to lognormal than Poisson.
+
+**Recommendation: use fourth-root (`to_scale(w, :fourthroot)`) as
+the primary modelling scale, not `log`/`log1p`.**
+This matches the original fable session's choice and Sam's prior
+that `log` over-transforms wILI's mean-variance relationship.
+Given the substantial per-location heterogeneity in the fitted power
+(Region 9 wants something closer to sqrt; Region 5/Region 6 want
+something more aggressive than log), no single global transform is
+exactly right everywhere; if the model architecture can support a
+location-varying observation-noise scale (e.g. a per-location
+dispersion/scale parameter on top of a shared fourth-root mean
+transform) that is more principled than searching for one perfect
+global power.
+
+## Transform comparison: skewness (secondary evidence)
 
 Skewness of the raw series and three candidate transforms
 (min-to-max across the 11 locations, validation-period data):
@@ -87,30 +179,37 @@ Skewness of the raw series and three candidate transforms
 | fourth-root | 0.02 to 1.04 | between log1p and logit |
 
 Logit gives the most symmetric residual distribution location by
-location, but wILI is a percentage that in this window never
-exceeds ~13.4%, so the logit transform is operating far from its
-natural bound at 100% for the whole range: it behaves close to a
-log transform in the observed regime and mostly earns its
-"most symmetric" ranking by correcting the heavy right tail rather
-than by using genuine boundedness information.
-`log1p` (equivalently `log` with a small additive offset,
-`to_scale(w, :log)` with an epsilon) is the pragmatic default: it
-handles the exact zeros without a separate boundary process, is
-simple to invert, and variance-stabilises well even though some
-right skew remains.
-Fourth-root is a reasonable middle-ground alternative if `log1p`
-under-corrects skew for the highest-variance locations (Region 5,
-Region 6, both above 1.0 on both log1p and fourth-root).
+location, but as noted above it is not exploiting genuine
+boundedness in this data, and it is not the flattest on
+variance-stabilisation grounds either.
+`log1p` cuts skew a lot but is the *worst* of the implemented
+transforms on variance-stabilisation grounds (see above), so
+skewness and variance-stabilisation point in different directions
+here — we prioritise variance-stabilisation per Sam's steer, since
+that is what the model's observation-noise assumption actually
+relies on, and treat any residual skew after fourth-root as
+something the AR/seasonal noise distribution should absorb (e.g. a
+Student-t observation noise) rather than something to fix by
+choosing a more skew-corrective transform.
 
 ## Implications for the model
 
 - Location-specific intercepts/scales are essential: raw ranges
   span roughly 3x between the lowest and highest locations.
-- Use `log1p`-style log (`to_scale` with a small offset) as the
-  primary modelling scale; it is simple, invertible, and handles
-  the 10 exact zeros (Region 7, Region 10) without a special case.
-  Keep logit or fourth-root as a fallback if diagnostics on
-  Region 5/6 show residual skew.
+- **Use fourth-root (`to_scale(w, :fourthroot)`) as the primary
+  modelling scale**, chosen on variance-stabilisation grounds (see
+  above): it is the flattest of the four implemented transforms and
+  matches Sam's prior and the original fable session.
+  It already handles the 10 exact zeros (Region 7, Region 10)
+  without a special case (`max(w, 0.0)^0.25`).
+- `sqrt` is not implemented in `TRANSFORMS` and this analysis does
+  not support adding it — it is empirically worse than fourth-root
+  here.
+- Given real per-location heterogeneity in the fitted power
+  (0.91-3.17 on the Taylor's-law `lambda` scale), consider whether
+  the model can support a location-varying observation-noise scale
+  on top of the shared fourth-root transform, rather than relying on
+  one global transform to be exactly right everywhere.
 - Define `woy` (week-of-season) using a season boundary at
   late July (day-of-year ≈ 205), consistent with the tscv season
   files; treat 52- vs 53-week seasons and the partial first season

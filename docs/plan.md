@@ -5,9 +5,12 @@ See [`brief.md`](brief.md) for the requirements this plan serves.
 
 ## Model design
 
-Everything is fit on a transformed scale `y = g(wILI%)`, with log as the
-default transform (Sam's stated preference); logit and fourth-root are
-candidate alternatives. For location `i`, week `t`:
+Everything is fit on a transformed scale `y = g(wILI%)`.
+The transform `g` is an empirically-chosen search axis rather than fixed:
+log is the starting point (Sam's stated preference) but is not necessarily
+variance-stabilising for wILI, so logit, fourth-root, and square-root are
+tested as candidates and the choice is picked on validation performance.
+For location `i`, week `t`:
 
 ```
 y[i,t] = seasonal[i, week-of-season(t), season(t)] + noise[i,t]
@@ -94,21 +97,28 @@ Each checkpoint commits and pushes to `seabbs-bot/sismid-ili-turing`, updates th
 status line in the README, and (for search loops) adds a report under
 `reports/`.
 
-- [ ] **Phase 0 — setup**
+- [x] **Phase 0 — setup**
   - [x] Create the repo on `seabbs-bot` and clone the target hub.
   - [x] Scaffold the repo and write the docs (brief, plan, infrastructure).
-  - [ ] Julia project with Turing, Mooncake, Pathfinder, ScoringRules, Arrow.
-  - [ ] Export the course R data objects to Arrow for Julia.
-  - [ ] WIS helper (natural and log scale) built on `ScoringRules.jl`, tested.
-- [ ] **Phase 1 — machinery**
-  - [ ] Base joint model in Turing with the design above.
-  - [ ] Forecast generation: posterior predictive to 23 quantiles x 4 horizons
+  - [x] Julia project with Turing, Mooncake, Pathfinder, ScoringRules, Arrow.
+  - [x] Export the course R data objects to Arrow for Julia.
+  - [x] WIS helper (natural and log scale) built on `ScoringRules.jl`, tested.
+- [x] **Phase 1 — machinery** (essentially done; end-to-end pipeline verified
+      on a real season-1 validation split, all 11 locations, mean WIS ~0.29)
+  - [x] Base joint model in Turing with the design above.
+        Fits fine via Pathfinder + Mooncake; an earlier apparent segfault in
+        `test_model.jl` was traced to box OOM/congestion (99% swap, 15+ Julia
+        processes), not a model or AD bug, so no rewrite was needed.
+  - [x] Forecast generation: posterior predictive to 23 quantiles x 4 horizons
         x 11 locations per origin date.
-  - [ ] Hubverse CSV writer and a local `hubValidations` check.
+        Produces a valid 11x4x23 hub table.
+  - [x] Hubverse CSV writer and a local `hubValidations` check.
   - [ ] Experiment-report template wired to the scoring output.
-- [ ] **Phase 2 — search** (validation seasons 2015/16, 2016/17)
+- [ ] **Phase 2 — search** (validation seasons 2015/16, 2016/17) — in progress
   - [ ] Run the tree search over at least 10 implement-and-review rounds; one
         report per loop; rank by WIS and WIS SD.
+        Round 1 (in progress): `v1-ar-high`, `v2-mvn-season`, `v3-diff`,
+        `v4-tv-ar`, `v5-backfill`, run through a resilient round-runner engine.
   - [ ] Each round: 5 to 10 implementers (lower-power models allowed) propose
         competing candidates; a reviewer picks the preferred one to carry
         forward.
@@ -121,9 +131,15 @@ status line in the README, and (for search loops) adds a report under
   - [ ] Full expanding-window forecasts for finalists; validate submission.
 - [ ] **Phase 5 — submit**
   - [ ] Fork the reichlab hub under `seabbs`, add model output and metadata.
-  - [ ] Open a submission smoke-test pull request to prove the hubverse
+  - [x] Open a submission smoke-test pull request to prove the hubverse
         mechanics work, ahead of the finalist submission.
+        Draft PR #59 on the reichlab hub passed the hub's
+        validate-submission CI.
+  - [ ] Make the submission process reproducible (`scripts/submit.jl`,
+        `docs/submission.md`); dress-rehearsed locally with the real base
+        model's output.
   - [ ] Pause for Sam's go-ahead, then open the finalist pull request.
+        No external PR is opened without that go-ahead.
 
 ## Submission format
 

@@ -29,9 +29,12 @@ This is a hard constraint, not a guideline, matching the SISMID session rules.
 
 - Written in Julia using Turing.jl.
 - Joint model across all 11 locations with partial pooling throughout.
-- Fit on the log-transformed scale by default; Sam's stated preference is
-  "I like log transform ARs".
-  Logit and fourth-root are candidate alternative transforms.
+- Transform choice is an empirically-chosen search axis, not fixed at log.
+  Log was Sam's initial stated preference ("I like log transform ARs"), and
+  is still the starting point, but log is not necessarily
+  variance-stabilising for wILI.
+  Logit, fourth-root, and square-root are candidate alternatives, chosen on
+  validation performance and variance-stabilisation grounds.
 - Seasonality learned as a random-effect structure, not Fourier terms.
   It varies by location and by season (time).
 - Autoregressive noise on top of the seasonal component, partially pooled.
@@ -45,6 +48,8 @@ This is a hard constraint, not a guideline, matching the SISMID session rules.
 
 Formulations to test as candidate axes in the search:
 
+- Transform: log vs logit vs fourth-root vs square-root, chosen empirically
+  for variance stabilisation and validation performance.
 - Location random effects: multivariate normal (correlated across locations)
   vs independent.
 - After seasonality: autoregression vs differencing.

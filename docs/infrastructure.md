@@ -10,13 +10,15 @@ Filled in as each piece lands, so this document tracks what actually exists.
 | Repo on `seabbs-bot` | done | `seabbs-bot/sismid-ili-turing`, local at `~/code/seabbs/sismid-ili-turing` |
 | Target hub clone | done | `~/code/external/sismid-ili-forecasting-sandbox` |
 | Docs | done | brief, plan, infrastructure, steer-log, eda, reports index and template |
-| Julia project | todo | Turing, Mooncake, Pathfinder, ScoringRules, Arrow, DataFrames |
-| Data export to Arrow | todo | from the course R package `.rda` objects |
-| WIS scoring helper | todo | natural and log scale, on `ScoringRules.jl` |
-| Base model | todo | Phase 1 |
-| Forecast + hubverse writer | todo | Phase 1 |
+| Julia project | done | Turing, Mooncake, Pathfinder, ScoringRules, Arrow, DataFrames |
+| Data export to Arrow | done | from the course R package `.rda` objects |
+| WIS scoring helper | done | natural and log scale, on `ScoringRules.jl`; mean WIS ~0.29 on a real season-1 validation split |
+| Base model | done | Phase 1; fits via Pathfinder + Mooncake |
+| Forecast + hubverse writer | done | Phase 1; produces a valid 11x4x23 hub table end to end |
 | Bayesian workflow checks | todo | prior/posterior predictive, residuals; per candidate, Phase 2 |
+| Tree search (Phase 2) | in progress | Round 1: `v1-ar-high`, `v2-mvn-season`, `v3-diff`, `v4-tv-ar`, `v5-backfill`, via a resilient round-runner engine |
 | Submission smoke-test PR | done | draft PR #59 on the reichlab hub passed the hub's validate-submission CI |
+| Reproducible submission tooling | in progress | `scripts/submit.jl` + `docs/submission.md`; dress-rehearsed locally with the real base model output; external PR stays paused for Sam's go-ahead |
 | Documenter docs site | todo | renders Julia API docs; links brief, plan, infrastructure, contracts, steer-log, `docs/eda/`, and per-loop reports |
 
 ## Data
@@ -51,6 +53,10 @@ origin dates and locations.
 - FlexiChains is the chains backend.
   Turing returns FlexiChains `VNChain` objects by default here, and the code
   works with that type directly rather than converting to MCMCChains.
+- The base model fits fine via Pathfinder + Mooncake.
+  An earlier apparent segfault in `test_model.jl` was traced to box
+  OOM/congestion (99% swap, 15+ Julia processes), not a model or AD bug;
+  no AD rewrite was needed.
 
 ## Testing
 

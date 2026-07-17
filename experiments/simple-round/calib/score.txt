@@ -1,0 +1,107 @@
+calibration (coverage + bias fix) on top of the round2-stack winner -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 44.7s
+
+base model: round2-stack log+tstudent+pool(w=0.9) (round2-stack/score.txt): mean_wis=0.2601 cov50=0.565 cov90=0.943
+reproduced here: mean_wis=0.2601 sd_wis=0.2587 cov50=0.565 cov90=0.943
+
+=== DIAGNOSIS (before) ===
+-- coverage at every nominal decile (pooled) --
+  nominal  empirical
+  10%      0.119 (n=2596)
+  20%      0.234 (n=2596)
+  30%      0.357 (n=2596)
+  40%      0.468 (n=2596)
+  50%      0.565 (n=2596)
+  60%      0.673 (n=2596)
+  70%      0.769 (n=2596)
+  80%      0.856 (n=2596)
+  90%      0.943 (n=2596)
+
+-- coverage by horizon --
+  nominal 10%: 1=0.109  2=0.119  3=0.134  4=0.112
+  nominal 20%: 1=0.228  2=0.24  3=0.247  4=0.22
+  nominal 30%: 1=0.353  2=0.387  3=0.353  4=0.334
+  nominal 40%: 1=0.471  2=0.498  3=0.453  4=0.448
+  nominal 50%: 1=0.587  2=0.581  3=0.556  4=0.535
+  nominal 60%: 1=0.689  2=0.696  3=0.663  4=0.643
+  nominal 70%: 1=0.794  2=0.784  3=0.749  4=0.75
+  nominal 80%: 1=0.86  2=0.869  3=0.847  4=0.849
+  nominal 90%: 1=0.948  2=0.952  3=0.94  4=0.931
+
+-- coverage by location (50%, 90%) --
+  nominal 50%: HHS Region 1=0.559  HHS Region 10=0.708  HHS Region 2=0.381  HHS Region 3=0.551  HHS Region 4=0.364  HHS Region 5=0.538  HHS Region 6=0.729  HHS Region 7=0.746  HHS Region 8=0.61  HHS Region 9=0.555  US National=0.47
+  nominal 90%: HHS Region 1=0.962  HHS Region 10=0.979  HHS Region 2=0.864  HHS Region 3=0.936  HHS Region 4=0.936  HHS Region 5=0.962  HHS Region 6=0.975  HHS Region 7=0.992  HHS Region 8=0.979  HHS Region 9=0.898  US National=0.886
+
+-- coverage by season (50%, 90%) --
+  nominal 50%: 1=0.579  2=0.55
+  nominal 90%: 1=0.953  2=0.932
+
+-- bias (median - truth) by horizon --
+  h=1: bias_nat=-0.048 bias_log=-0.009 (n=649)
+  h=2: bias_nat=-0.073 bias_log=-0.014 (n=649)
+  h=3: bias_nat=-0.094 bias_log=-0.018 (n=649)
+  h=4: bias_nat=-0.105 bias_log=-0.02 (n=649)
+-- bias by location --
+  HHS Region 1     bias_nat=-0.108 bias_log=-0.046 (n=236)
+  HHS Region 10    bias_nat=-0.149 bias_log=-0.063 (n=236)
+  HHS Region 2     bias_nat=-0.013 bias_log=0.036 (n=236)
+  HHS Region 3     bias_nat=-0.069 bias_log=-0.012 (n=236)
+  HHS Region 4     bias_nat=-0.245 bias_log=-0.061 (n=236)
+  HHS Region 5     bias_nat=-0.066 bias_log=-0.005 (n=236)
+  HHS Region 6     bias_nat=-0.0 bias_log=0.015 (n=236)
+  HHS Region 7     bias_nat=-0.226 bias_log=-0.041 (n=236)
+  HHS Region 8     bias_nat=-0.027 bias_log=0.003 (n=236)
+  HHS Region 9     bias_nat=0.052 bias_log=0.004 (n=236)
+  US National      bias_nat=-0.028 bias_log=0.004 (n=236)
+-- bias by season --
+  season 1: bias_nat=0.036 bias_log=0.017 (n=1320)
+  season 2: bias_nat=-0.2 bias_log=-0.049 (n=1276)
+-- WIS over/under-prediction by horizon (pinball asymmetry proxy) --
+  h=1: over=0.0401 under=0.0589
+  h=2: over=0.0445 under=0.0803
+  h=3: over=0.0535 under=0.1018
+  h=4: over=0.0596 under=0.1135
+
+=== FIX: leave-one-season-out ablation (honest, out-of-fold WIS/coverage for each candidate stage) ===
+  bias only                                  mean_wis=0.2719 sd_wis=0.2754 cov50=0.552 cov90=0.935
+  bias+hscale+locscale (naive full fix)      mean_wis=0.2688 sd_wis=0.303 cov50=0.474 cov90=0.889
+  hscale+locscale (no bias)                  mean_wis=0.2574 sd_wis=0.2841 cov50=0.499 cov90=0.908
+  locscale only (FINAL CHOICE)               mean_wis=0.2566 sd_wis=0.2748 cov50=0.518 cov90=0.922
+-> BIAS DOES NOT GENERALIZE: any variant including it scores worse OOF than the uncalibrated baseline (0.2601). Season-level bias flips sign (season 1: +0.036, season 2: -0.2, see bias-by-season above) -- that's season-severity noise, not a persistent artifact a fixed constant can correct for. Per-horizon width scaling adds nothing once location scaling is present. FINAL FIX = per-location width scale only.
+
+-- detail for the final choice (locscale only) --
+coverage at every nominal decile (after, OOF):
+  nominal  empirical
+  10%      0.103 (n=2596)
+  20%      0.209 (n=2596)
+  30%      0.309 (n=2596)
+  40%      0.419 (n=2596)
+  50%      0.518 (n=2596)
+  60%      0.615 (n=2596)
+  70%      0.726 (n=2596)
+  80%      0.824 (n=2596)
+  90%      0.922 (n=2596)
+
+coverage by horizon (50%, 90%), after OOF:
+  nominal 50%: 1=0.536  2=0.545  3=0.51  4=0.481
+  nominal 90%: 1=0.928  2=0.929  3=0.923  4=0.909
+
+coverage by season (50%, 90%), after OOF:
+  nominal 50%: 1=0.55  2=0.485
+  nominal 90%: 1=0.955  2=0.888
+
+bias by horizon, after OOF:
+  h=1: bias_nat=-0.048 bias_log=-0.009 (n=649)
+  h=2: bias_nat=-0.073 bias_log=-0.014 (n=649)
+  h=3: bias_nat=-0.094 bias_log=-0.018 (n=649)
+  h=4: bias_nat=-0.105 bias_log=-0.02 (n=649)
+
+WIS: before=0.2601 after(OOF)=0.2566 delta=0.0036 (1.37%)
+coverage: cov50 0.565 -> 0.518 (nominal 0.50); cov90 0.943 -> 0.922 (nominal 0.90)
+
+=== final calibration constants (fit on BOTH validation seasons -- frozen for the hub submission) ===
+delta (log-scale bias, by horizon): 1=0.0  2=0.0  3=0.0  4=0.0 (identity -- dropped, see ablation above)
+h_scale (width multiplier, by horizon): 1=1.0  2=1.0  3=1.0  4=1.0 (identity -- dropped, adds nothing once loc_scale is present)
+loc_scale (width multiplier, by location): HHS Region 1=0.86  HHS Region 10=0.7  HHS Region 2=1.1  HHS Region 3=0.88  HHS Region 4=1.14  HHS Region 5=0.9  HHS Region 6=0.7  HHS Region 7=0.7  HHS Region 8=0.72  HHS Region 9=0.96  US National=1.06
+in-sample check (both seasons, NOT the honest number -- see OOF above): mean_wis=0.2549 cov50=0.511 cov90=0.924

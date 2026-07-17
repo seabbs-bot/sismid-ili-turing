@@ -168,10 +168,20 @@ const MODEL_ID = "seabbs_bot-conformal-pooled"
 const TRANSFORM = :log     # log beats fourth-root ~4% (simp-transform)
 const AR_ORDER = 6
 const DMAX = 12            # matches nfidd-ar6's build_model_data Dmax
-const WINDOW_WEEKS = 104   # matches nfidd-ar6: caps AR history at 2 seasons
+const WINDOW_WEEKS = parse(Int, get(ENV, "WINDOW_WEEKS", "208"))
+                           # AR training window. 208 (~4 seasons) is the
+                           # validation optimum of a leak-free sweep over
+                           # {104,130,156,182,208}; the base was 104. It's a
+                           # leak-independent structural lever (AR history,
+                           # not the seasonal profile). See score.txt.
 const SEASON_PERIOD = 52   # canonical annual cycle length for the climatology
 const DELAY_CUTOFF = 8     # weeks; backfill profile is ~0 beyond this
 const MIN_SUPPORT = 5      # min sample size per (location, delay) to trust
+const WIDTH_SCALE = parse(Float64, get(ENV, "WIDTH_SCALE", "0.9"))
+                           # global multiplicative scale on the conformal
+                           # interval half-widths; 0.9 restores near-nominal
+                           # coverage that window=208 slightly over-covers,
+                           # for a marginal WIS gain (see score.txt).
 const HUB_PATH = joinpath(PKG_DIR, "scratch-hub")  # local oracle for scoring
 
 # Pooled-seasonal point-forecast knobs (this variant's changes vs the
@@ -447,6 +457,48 @@ function point_path_clim(
 end
 
 # ---------------------------------------------------------------------
+# Damped-trend (Gardner) forecast for the damped-trend blend
+# ---------------------------------------------------------------------
+
+"""
+    damped_holt(y, alpha, beta, phi, horizons) -> Dict{Int,Float64}
+
+Holt damped level+trend (Gardner 1985) `h`-step point forecasts on the
+modelling (`TRANSFORM`) scale, recursed over the whole series `y`:
+`level_t = alpha*y_t + (1-alpha)*(level_{t-1} + phi*trend_{t-1})`,
+`trend_t = beta*(level_t - level_{t-1}) + (1-beta)*phi*trend_{t-1}`,
+forecast `level_T + (phi + phi^2 + ... + phi^h) * trend_T`. `phi < 1`
+damps the extrapolated trend toward a flat line at long horizons. Used
+only as the blend target in `build_forecast_table` (never on its own);
+`alpha`/`beta` are fixed smoothing constants, `phi`/`blend_max` are the
+swept knobs.
+"""
+function damped_holt(
+    y::AbstractVector{Float64}, alpha::Float64, beta::Float64,
+    phi::Float64, horizons,
+)
+    n = length(y)
+    n >= 2 || return Dict(h => (n == 0 ? 0.0 : y[end]) for h in horizons)
+    level = y[1]
+    trend = y[2] - y[1]
+    for t in 2:n
+        prev = level
+        level = alpha * y[t] + (1 - alpha) * (prev + phi * trend)
+        trend = beta * (level - prev) + (1 - beta) * phi * trend
+    end
+    out = Dict{Int,Float64}()
+    hmax = maximum(horizons)
+    cum = 0.0
+    ph = 1.0
+    for h in 1:hmax
+        ph *= phi          # phi^h
+        cum += ph          # sum_{i=1}^h phi^i
+        h in horizons && (out[h] = level + cum * trend)
+    end
+    return out
+end
+
+# ---------------------------------------------------------------------
 # Vintage lookup: "best value known as of a given date" for a
 # (location, reference date) pair -- used to mature pending calibration
 # tasks once their target_end_date has passed.
@@ -538,13 +590,13 @@ there is no pooled calibration data yet to fall back on.
 """
 function calibrated_quantiles(
     point::Float64, resid_sd::Float64, pool::Vector{Float64},
-    qs::Vector{Float64},
+    qs::Vector{Float64}; width_scale::Float64=1.0,
 )
     if length(pool) >= MIN_CALIB
-        return [point + quantile(pool, q) for q in qs]
+        return [point + width_scale * quantile(pool, q) for q in qs]
     end
     vscale = sqrt((FALLBACK_DF - 2) / FALLBACK_DF)
-    innov_sd = resid_sd * vscale * FALLBACK_SCALE
+    innov_sd = resid_sd * vscale * FALLBACK_SCALE * width_scale
     tdist = TDist(FALLBACK_DF)
     return [point + innov_sd * quantile(tdist, q) for q in qs]
 end
@@ -567,7 +619,11 @@ AR(6) coefficients are partially pooled across locations at `POOL_WEIGHT`.
 See the module docstring for the full pending -> matured -> pooled
 mechanics.
 """
-function build_forecast_table(seasons, versions_full, hist_all, vidx)
+function build_forecast_table(
+    seasons, versions_full, hist_all, vidx;
+    window_weeks::Int=WINDOW_WEEKS, pool_weight::Float64=POOL_WEIGHT,
+    damp=nothing, width_scale::Float64=1.0,
+)
     rows = DataFrame(
         model_id=String[], location=String[], origin_date=Date[],
         horizon=Int[], target_end_date=Date[], target=String[],
@@ -586,7 +642,7 @@ function build_forecast_table(seasons, versions_full, hist_all, vidx)
         for split in splits
             data = build_model_data(
                 split; Dmax=DMAX, transform=TRANSFORM,
-                window_weeks=WINDOW_WEEKS, versions=versions_full,
+                window_weeks=window_weeks, versions=versions_full,
             )
             origin = data.origin_date
 
@@ -649,14 +705,31 @@ function build_forecast_table(seasons, versions_full, hist_all, vidx)
             # pooled fit (AR-coefficient partial pooling), then the
             # deterministic point path + split-conformal quantiles.
             for (li, loc) in enumerate(LOCATIONS)
-                coef = (1 - POOL_WEIGHT) .* coefs_loc[li] .+
-                       POOL_WEIGHT .* coef_pool
+                coef = (1 - pool_weight) .* coefs_loc[li] .+
+                       pool_weight .* coef_pool
                 resid = yrs[li] .- Xs[li] * coef
                 dof = max(length(yrs[li]) - (AR_ORDER + 2), 1)
                 resid_sd = sqrt(sum(abs2, resid) / dof)
                 point = point_path_clim(
                     ys[li], future_woy, coef, AR_ORDER, clim, HORIZONS,
                 )
+                # Optional damped-trend (Gardner) blend: re-centre the AR
+                # point path toward a Holt damped level+trend forecast at a
+                # horizon-increasing weight (0 at h1 up to blend_max at
+                # hmax), targeting the long horizons where the AR mean-
+                # reverts too fast. Leak-independent (fit on data up to
+                # `origin` only).
+                if damp !== nothing
+                    dampf = damped_holt(
+                        ys[li], damp.alpha, damp.beta, damp.phi, HORIZONS,
+                    )
+                    hmax = maximum(HORIZONS)
+                    for h in HORIZONS
+                        w = hmax > 1 ?
+                            damp.blend_max * (h - 1) / (hmax - 1) : 0.0
+                        point[h] = (1 - w) * point[h] + w * dampf[h]
+                    end
+                end
                 for h in HORIZONS
                     target_end = origin + Day(7 * h)
                     pool = calib_pool[h]
@@ -665,7 +738,10 @@ function build_forecast_table(seasons, versions_full, hist_all, vidx)
                     else
                         n_fallback[h] += 1
                     end
-                    qvals = calibrated_quantiles(point[h], resid_sd, pool, QUANTILE_LEVELS)
+                    qvals = calibrated_quantiles(
+                        point[h], resid_sd, pool, QUANTILE_LEVELS;
+                        width_scale=width_scale,
+                    )
                     for (q, val) in zip(QUANTILE_LEVELS, qvals)
                         nat = max(from_scale(val, TRANSFORM), 0.0)
                         push!(rows, (
@@ -738,7 +814,9 @@ function main()
     # The backfill and pooled-seasonal profiles are rebuilt LEAK-FREE per
     # origin inside build_forecast_table, so nothing global is fit here.
     forecast = build_forecast_table(
-        (1, 2, 3, 4, 5), versions_full, hist_all, vidx,
+        (1, 2, 3, 4, 5), versions_full, hist_all, vidx;
+        window_weeks=WINDOW_WEEKS, pool_weight=POOL_WEIGHT,
+        width_scale=WIDTH_SCALE,
     )
     dt = round(time() - t0; digits=2)
     n_origins = length(unique(forecast.origin_date))
@@ -788,10 +866,14 @@ function main()
                      "seasonal shape (shared across all 11 locations, " *
                      "rebuilt per origin from origin_date < forecast " *
                      "origin) + per-(location,delay) backfill (also rebuilt " *
-                     "per origin) + per-location AR(6) with AR-coefficient " *
+                     "per origin) + per-location AR(6) over a " *
+                     "$(WINDOW_WEEKS)-week window with AR-coefficient " *
                      "pooling (w=$(POOL_WEIGHT)), log transform. Intervals: " *
-                     "split-conformal, reused verbatim from experiments/" *
-                     "simple-round/conformal.")
+                     "split-conformal (reused verbatim from experiments/" *
+                     "simple-round/conformal) with a global width scale " *
+                     "$(WIDTH_SCALE). Stacked from the base " *
+                     "(window=104, width=1.0 -> 0.2870) via the two " *
+                     "leak-independent structural levers below.")
         println(io, "Scored on VALIDATION SEASONS (1, 2) ONLY, natural " *
                      "scale, against target-data/oracle-output.csv " *
                      "(docs/contracts.md experimental integrity). Every " *
@@ -822,7 +904,8 @@ function main()
         println(io, "  90% -> $(round(cov90; digits=3))")
         println(io)
         println(io, "AR-coefficient pooling weight sweep (leak-free, " *
-                     "validation seasons 1-2; POOL_WEIGHT env var):")
+                     "validation seasons 1-2; POOL_WEIGHT env var; " *
+                     "measured at the window=104 base):")
         println(io, "  w=0.0  mean_wis=0.2950  cov50=0.509  cov90=0.893")
         println(io, "  w=0.3  mean_wis=0.2870  cov50=0.517  cov90=0.908  " *
                      "<- selected (validation optimum)")
@@ -835,15 +918,60 @@ function main()
                      "seasstack (w=0.9 on its own design), this model wants " *
                      "only light AR pooling.")
         println(io)
-        println(io, "HONEST ANSWER: leak-free pooled-seasonal + conformal " *
-                     "(w=0.3) = 0.2870, which BEATS the clean season model " *
-                     "(0.3004, -4.5%) and conformal-on-plain-climatology " *
-                     "(0.2917, -1.6%), and marginally edges seasstack " *
-                     "(0.2891, -0.7%). The margin over the two conformal/" *
-                     "stack references is within validation noise -- the " *
-                     "pooled seasonal shape itself is ~a wash (as the " *
-                     "leaderboard found); the gains are from log + light AR " *
-                     "pooling + calibrated intervals.")
+        println(io, "STACKED STRUCTURAL LEVERS (leak-free, validation " *
+                     "seasons 1-2; reproduce with sweep_stack.jl). Base = " *
+                     "window=104, no damp, width=1.0 -> 0.2870.")
+        println(io)
+        println(io, "1. AR training window (window_weeks; damp off, " *
+                     "width=1.0):")
+        println(io, "   104  wis=0.2870  h1=0.218 h2=0.271 h3=0.314 " *
+                     "h4=0.345  cov50=0.517 cov90=0.908  (base)")
+        println(io, "   130  wis=0.2748  h4=0.325  cov50=0.527 cov90=0.918")
+        println(io, "   156  wis=0.2769  h4=0.328  cov50=0.524 cov90=0.917")
+        println(io, "   182  wis=0.2753  h4=0.326  cov50=0.530 cov90=0.921")
+        println(io, "   208  wis=0.2737  h4=0.321  cov50=0.536 cov90=0.929  " *
+                     "<- best window (~4 seasons)")
+        println(io, "   Longer history is the real structural lever: -4.6% " *
+                     "vs base, gain concentrated at h3/h4 (h4 0.345->0.321). " *
+                     "Leak-independent (AR history, not the seasonal " *
+                     "profile). It slightly OVER-covers (wider empirical " *
+                     "calibration pool).")
+        println(io)
+        println(io, "2. Damped-trend (Gardner) blend at window=208 " *
+                     "(alpha=0.5, beta=0.1; horizon-ramped weight 0->" *
+                     "blend_max):")
+        println(io, "   phi=0.85 bm=0.1 -> 0.2738   phi=0.9 bm=0.1 -> " *
+                     "0.2738   phi=0.95 bm=0.1 -> 0.2739")
+        println(io, "   (bm=0.2/0.3 all worse, up to 0.2805). NULL RESULT: " *
+                     "the damped blend does NOT help here -- window=208 has " *
+                     "already fixed the long-horizon mean-reversion the " *
+                     "damped trend was meant to address, so the two levers " *
+                     "are redundant on this base (unlike on seasstack).")
+        println(io)
+        println(io, "3. Global interval width scale at window=208 (width_" *
+                     "scale; the covbias/width check):")
+        println(io, "   0.85 -> wis=0.2732 cov50=0.478 cov90=0.889")
+        println(io, "   0.90 -> wis=0.2730 cov50=0.498 cov90=0.907  " *
+                     "<- selected (near-nominal)")
+        println(io, "   0.95 -> wis=0.2732 cov50=0.518 cov90=0.920")
+        println(io, "   NOT redundant: window=208 over-covers, and a 0.9 " *
+                     "width scale restores near-nominal coverage (cov50 " *
+                     "0.498, cov90 0.907) for a marginal further WIS gain. " *
+                     "Per-location width scaling (covbias) would refine this " *
+                     "but the over-coverage is roughly uniform, so the " *
+                     "global scale captures the effect.")
+        println(io)
+        println(io, "HONEST ANSWER: the stacked winner is window=208 + " *
+                     "width=0.9 (damp off) = " *
+                     "$(round(summ.mean_wis; digits=4)) " *
+                     "(cov50 $(round(cov50; digits=3)), cov90 " *
+                     "$(round(cov90; digits=3))). It breaks clearly below " *
+                     "the 0.2870 base (-4.9%) and the season model (0.3004, " *
+                     "-9.1%), and beats seasstack's window208+damped 0.2801 " *
+                     "on BOTH WIS (-2.5%) and calibration (near-nominal vs " *
+                     "0.56/0.94 over-covered). Longer AR window is the win; " *
+                     "damped-trend does not transfer; a light global width " *
+                     "scale fixes the residual over-coverage.")
         println(io)
         println(io, "For comparison, simp-intervals found the RAW " *
                      "(unscaled) parametric scheme covers only ~41%/78% " *

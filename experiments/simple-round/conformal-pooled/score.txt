@@ -1,6 +1,6 @@
 simple-round candidate: conformal-pooled (leak-free pooled-seasonal point forecast + split-conformal intervals)
 =============================================================================
-Point forecast: LEAK-FREE pooled week-of-season seasonal shape (shared across all 11 locations, rebuilt per origin from origin_date < forecast origin) + per-(location,delay) backfill (also rebuilt per origin) + per-location AR(6) with AR-coefficient pooling (w=0.3), log transform. Intervals: split-conformal, reused verbatim from experiments/simple-round/conformal.
+Point forecast: LEAK-FREE pooled week-of-season seasonal shape (shared across all 11 locations, rebuilt per origin from origin_date < forecast origin) + per-(location,delay) backfill (also rebuilt per origin) + per-location AR(6) over a 208-week window with AR-coefficient pooling (w=0.3), log transform. Intervals: split-conformal (reused verbatim from experiments/simple-round/conformal) with a global width scale 0.9. Stacked from the base (window=104, width=1.0 -> 0.2870) via the two leak-independent structural levers below.
 Scored on VALIDATION SEASONS (1, 2) ONLY, natural scale, against target-data/oracle-output.csv (docs/contracts.md experimental integrity). Every profile is fit only from data strictly before each forecast origin -- no validation-season future weeks inform their own forecasts.
 
 Reference points (all leak-free):
@@ -8,15 +8,15 @@ Reference points (all leak-free):
   conformal on plain climatology (per-loc, fourthroot) = 0.2917
   seasstack full stack (log + Student-t + AR pooling)  = 0.2891
 
-RESULT: seabbs_bot-conformal-pooled mean_wis=0.287 sd_wis=0.3311 n_tasks=2596
-  vs season model (0.3004): 0.0134 (4.46%)
-  vs conformal-on-plain-climatology (0.2917, the target to beat): 0.0047 (1.61%)
+RESULT: seabbs_bot-conformal-pooled mean_wis=0.273 sd_wis=0.3181 n_tasks=2596
+  vs season model (0.3004): 0.0274 (9.13%)
+  vs conformal-on-plain-climatology (0.2917, the target to beat): 0.0187 (6.42%)
 
 Coverage (nominal -> actual):
-  50% -> 0.517
-  90% -> 0.908
+  50% -> 0.498
+  90% -> 0.907
 
-AR-coefficient pooling weight sweep (leak-free, validation seasons 1-2; POOL_WEIGHT env var):
+AR-coefficient pooling weight sweep (leak-free, validation seasons 1-2; POOL_WEIGHT env var; measured at the window=104 base):
   w=0.0  mean_wis=0.2950  cov50=0.509  cov90=0.893
   w=0.3  mean_wis=0.2870  cov50=0.517  cov90=0.908  <- selected (validation optimum)
   w=0.5  mean_wis=0.2905  cov50=0.521  cov90=0.919
@@ -24,10 +24,30 @@ AR-coefficient pooling weight sweep (leak-free, validation seasons 1-2; POOL_WEI
   w=0.9  mean_wis=0.3239  cov50=0.502  cov90=0.916
   Shallow interior optimum at w=0.3; light AR pooling helps, heavy pooling over-shrinks (the shared pooled seasonal shape already couples the locations). Unlike seasstack (w=0.9 on its own design), this model wants only light AR pooling.
 
-HONEST ANSWER: leak-free pooled-seasonal + conformal (w=0.3) = 0.2870, which BEATS the clean season model (0.3004, -4.5%) and conformal-on-plain-climatology (0.2917, -1.6%), and marginally edges seasstack (0.2891, -0.7%). The margin over the two conformal/stack references is within validation noise -- the pooled seasonal shape itself is ~a wash (as the leaderboard found); the gains are from log + light AR pooling + calibrated intervals.
+STACKED STRUCTURAL LEVERS (leak-free, validation seasons 1-2; reproduce with sweep_stack.jl). Base = window=104, no damp, width=1.0 -> 0.2870.
+
+1. AR training window (window_weeks; damp off, width=1.0):
+   104  wis=0.2870  h1=0.218 h2=0.271 h3=0.314 h4=0.345  cov50=0.517 cov90=0.908  (base)
+   130  wis=0.2748  h4=0.325  cov50=0.527 cov90=0.918
+   156  wis=0.2769  h4=0.328  cov50=0.524 cov90=0.917
+   182  wis=0.2753  h4=0.326  cov50=0.530 cov90=0.921
+   208  wis=0.2737  h4=0.321  cov50=0.536 cov90=0.929  <- best window (~4 seasons)
+   Longer history is the real structural lever: -4.6% vs base, gain concentrated at h3/h4 (h4 0.345->0.321). Leak-independent (AR history, not the seasonal profile). It slightly OVER-covers (wider empirical calibration pool).
+
+2. Damped-trend (Gardner) blend at window=208 (alpha=0.5, beta=0.1; horizon-ramped weight 0->blend_max):
+   phi=0.85 bm=0.1 -> 0.2738   phi=0.9 bm=0.1 -> 0.2738   phi=0.95 bm=0.1 -> 0.2739
+   (bm=0.2/0.3 all worse, up to 0.2805). NULL RESULT: the damped blend does NOT help here -- window=208 has already fixed the long-horizon mean-reversion the damped trend was meant to address, so the two levers are redundant on this base (unlike on seasstack).
+
+3. Global interval width scale at window=208 (width_scale; the covbias/width check):
+   0.85 -> wis=0.2732 cov50=0.478 cov90=0.889
+   0.90 -> wis=0.2730 cov50=0.498 cov90=0.907  <- selected (near-nominal)
+   0.95 -> wis=0.2732 cov50=0.518 cov90=0.920
+   NOT redundant: window=208 over-covers, and a 0.9 width scale restores near-nominal coverage (cov50 0.498, cov90 0.907) for a marginal further WIS gain. Per-location width scaling (covbias) would refine this but the over-coverage is roughly uniform, so the global scale captures the effect.
+
+HONEST ANSWER: the stacked winner is window=208 + width=0.9 (damp off) = 0.273 (cov50 0.498, cov90 0.907). It breaks clearly below the 0.2870 base (-4.9%) and the season model (0.3004, -9.1%), and beats seasstack's window208+damped 0.2801 on BOTH WIS (-2.5%) and calibration (near-nominal vs 0.56/0.94 over-covered). Longer AR window is the win; damped-trend does not transfer; a light global width scale fixes the residual over-coverage.
 
 For comparison, simp-intervals found the RAW (unscaled) parametric scheme covers only ~41%/78% at 50%/90% nominal, and its own tuned/inflated Student-t scheme (needed to fix that) still lands at 52.5%/89.2% -- over-covered because a symmetric distribution has to be blown up past its natural spread to compensate for the point forecast's own skew. Split-conformal calibration reads the (possibly skewed) error quantiles directly, with no distributional assumption once a horizon's pool has matured.
 
 Design: rolling walk-forward split-conformal, pooled across all 11 locations per horizon (see generate.jl module docstring for the full pending/maturation mechanism). MIN_CALIB=10; fallback (only the first few origins of season 1) is simp-intervals' own Student-t(df=10, scale=1.4) scheme.
 
-Runtime: 19.85s for the full 5-season build (no Monte Carlo simulation anywhere -- point forecast is a deterministic recursion, calibrated quantiles come directly from an empirical or closed-form Student-t quantile function).
+Runtime: 17.13s for the full 5-season build (no Monte Carlo simulation anywhere -- point forecast is a deterministic recursion, calibrated quantiles come directly from an empirical or closed-form Student-t quantile function).

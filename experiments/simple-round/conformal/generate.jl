@@ -20,20 +20,26 @@
 #
 # This driver instead calibrates DIRECTLY: at every forecast origin, it
 # keeps a running (per-horizon, pooled-across-locations) empirical
-# distribution of STUDENTIZED "point forecast minus later-observed value"
-# errors -- each divided by ITS OWN originating fit's `resid_sd` before
-# pooling -- from every EARLIER origin whose outcome is already known as
-# of today, and reads calibrated quantiles straight off that distribution,
-# rescaled back up by THIS location's own current `resid_sd`
+# distribution of "point forecast minus later-observed value" errors from
+# every EARLIER origin whose outcome is already known as of today, and
+# reads calibrated quantiles straight off that empirical distribution
 # (split-conformal, in the sense of a genuinely held-out calibration set
 # -- just built once, incrementally, walk-forward, rather than as a
-# single fixed split). No Gaussian/Student-t SHAPE is assumed at all past
-# an initial warm-up -- the errors' own (studentized) quantiles, however
-# skewed, are used directly; studentizing before pooling is what lets 11
-# locations with very different volatility (season/generate.jl's
-# region-by-region WIS ranges roughly 4x, HHS Region 1 vs Region 2) share
-# one calibration set without forcing one shared absolute width onto all
-# of them.
+# single fixed split). No Gaussian/Student-t shape is assumed at all past
+# an initial warm-up; the errors' own quantiles -- however skewed -- are
+# used directly.
+#
+# STUDENTIZING each error by its own originating fit's `resid_sd` before
+# pooling (so one calibration set could still be rescaled per-location,
+# to account for the 11 locations' very different volatility --
+# season/generate.jl's region-by-region breakdown shows roughly a 4x
+# spread in mean WIS) was tried and made things slightly WORSE (mean WIS
+# 0.296 vs 0.292 raw, both coverage figures also worse) -- a single
+# split's `resid_sd` is itself a noisy per-(location, split) OLS estimate
+# over a short window, so dividing by it injects more noise than it
+# removes real scale differences. Raw, un-rescaled pooling across all 11
+# locations -- letting sample SIZE rather than per-location rescaling do
+# the calibration work -- wins, and is what this file implements.
 #
 # Calibration-set construction (the walk-forward rolling design):
 #   Every task this driver has ever forecast (any origin, any location,
@@ -66,24 +72,46 @@
 #   seasons (3-5) at generation time never uses information from those
 #   seasons to calibrate anything before it has actually happened.
 #
-# Fallback (only needed for the first few origins of season 1, before
+# Fallback (only needed for the first ~2-5 origins of season 1, before
 # any pool reaches `MIN_CALIB`): the SAME Student-t(df=10), scale=1.4
 # scheme simp-intervals selected (experiments/simple-round/intervals/
 # generate.jl) -- a defensible parametric placeholder for the handful of
 # earliest tasks that have no calibration history yet, not a tuned choice
-# of its own.
+# of its own. `MIN_CALIB` itself was swept over {5, 10, 15, 20, 30, 40}
+# on validation only: 5/10/15/20 all land at the same mean_wis=0.2917-
+# 0.2939 (the pool already has plenty of pooled-across-11-locations data
+# by the time any of these thresholds is reached), 30 and 40 are very
+# slightly worse (0.2951, 0.2962) -- waiting for a bigger pool before
+# trusting it just means more tasks spend longer on the cruder fallback
+# for no accuracy benefit. `MIN_CALIB=10` is used: comfortably past the
+# smallest thresholds that already work, not a sharp optimum.
 #
 # Result (validation seasons 1, 2 only; see score.txt for the full
-# table): mean_wis=0.2721 (vs 0.3004 for the SAME point forecast's
-# parametric Gaussian intervals, and vs 0.2781 for seasoncombo-core's
-# pooled-seasonal point forecast + plain Gaussian intervals) -- direct
-# conformal calibration beats BOTH the parametric interval scheme around
-# this exact point forecast AND the next-best simple-round candidate
-# (seasoncombo-core) that has a different, and slightly better, point
-# forecast but a plain unfixed Gaussian spread. Coverage: 50% nominal ->
-# 0.498 actual, 90% nominal -> 0.897 actual -- both far closer to nominal
-# than the parametric scheme's own 41%/78% (raw) or the tuned 52.5%/89.2%
-# (simp-intervals' inflated Student-t, on the plain-AR6 point forecast).
+# table): mean_wis=0.2917, sd_wis=0.3451 (vs 0.3004 for the SAME point
+# forecast's parametric Gaussian intervals -- a 2.9% improvement, in the
+# same ballpark as simp-intervals' own tuned-Student-t gain over ITS
+# baseline, but reached with no manual scale search at all). Coverage:
+# 50% nominal -> 0.480 actual, 90% nominal -> 0.871 actual -- both much
+# closer to nominal than the parametric scheme's raw 41%/78%, reached
+# directly rather than via simp-intervals' manually-inflated-until-close
+# Student-t (52.5%/89.2%).
+#
+# Does NOT beat seasoncombo-core's 0.2781 (experiments/simple-round/
+# seasoncombo/score.txt): that candidate's point forecast (pooled
+# seasonal shape + per-location amplitude + backfill) is itself simply
+# more accurate than this family's climatology point forecast -- its own
+# WIS with a plain, uncalibrated Gaussian spread (0.2781) already beats
+# this file's calibrated-interval result built on the weaker point
+# forecast. This is a genuine, informative negative result on the
+# "beat 0.278" target, not a failure of split-conformal calibration
+# itself: conformal calibration fixes what it can (the interval, given a
+# fixed point forecast) and does so cleanly (2.9% WIS gain, much better
+# coverage, zero manual tuning) -- but it cannot make a worse point
+# forecast better than a rival's better one. Whether split-conformal
+# calibration applied to seasoncombo-core's OWN (better) point forecast
+# would beat 0.2781 is untested here (out of scope: the brief was to
+# keep the season/generate.jl point forecast fixed) but is a natural
+# next step if this family is revisited.
 #
 # LIGHT + ANALYTIC: no simulation at all. The point forecast is the
 # deterministic AR(6)+climatology recursion (its own mean path, no
@@ -132,7 +160,7 @@ const MIN_SUPPORT = 5      # min sample size per (location, delay) to trust
 const HUB_PATH = joinpath(PKG_DIR, "scratch-hub")  # local oracle for scoring
 
 # Split-conformal calibration knobs.
-const MIN_CALIB = 40       # min pooled (location-pooled) errors per horizon
+const MIN_CALIB = 10       # min pooled (location-pooled) errors per horizon
                             # before trusting the empirical quantiles over
                             # the fallback; pools across 11 locations, so
                             # this is reached within ~3 elapsed origins
@@ -366,17 +394,13 @@ end
 
 One forecast task awaiting maturation: the point forecast (transform
 scale) made for `location` at `horizon`, whose outcome becomes knowable
-once some later origin reaches `target_end_date`. `resid_sd` is that
-task's OWN fit's in-sample residual SD, carried along so the eventual
-error can be STUDENTIZED (divided by it) before pooling -- see
-`calibrated_quantiles` for why.
+once some later origin reaches `target_end_date`.
 """
 struct PendingTask
     target_end_date::Date
     location::String
     horizon::Int
     point::Float64
-    resid_sd::Float64
 end
 
 """
@@ -384,24 +408,26 @@ end
 
 Calibrated quantile forecast (transform scale) at each level in `qs`.
 
-`pool` holds STUDENTIZED calibration errors for this horizon: each past
-error was divided by ITS OWN originating fit's `resid_sd` before being
-pooled (see `PendingTask`/`build_forecast_table`), because the 11
-locations' AR(6) residual spreads differ by roughly an order of
-magnitude (season/generate.jl's region-by-region breakdown; HHS Region 2
-alone runs ~4x the mean WIS of HHS Region 1). Pooling RAW errors across
-locations would force one shared width onto all of them -- too wide for
-the calm locations, too narrow for the volatile ones, since WIS rewards
-sharpness as much as coverage. Pooling the STANDARDIZED errors instead
-still borrows strength across all 11 locations (so `MIN_CALIB` is
-reached quickly), while `point + resid_sd * quantile(pool, q)` rescales
-the shared shape back to THIS location's own current spread.
+`pool` holds RAW (natural-scale-of-the-transform) calibration errors for
+this horizon, pooled across all 11 locations: each past error is
+`actual - point` on the transform scale, un-rescaled (see
+`build_forecast_table`).
+
+Studentizing each error by ITS OWN originating fit's `resid_sd` before
+pooling -- so a shared calibration set could still be rescaled back up
+per-location -- was tried and made things slightly WORSE (mean WIS 0.296
+vs 0.292 raw, and worse coverage): a single split's `resid_sd` is itself
+a noisy estimate (OLS over a ~2-season, ~11-location-specific window), so
+dividing by it just injects extra noise into the pool rather than
+removing genuine cross-location scale differences. Raw pooling, with the
+sheer volume from pooling 11 locations doing the calibration work
+instead, wins.
 
 If `pool` has reached `MIN_CALIB`, each quantile is
-`point + resid_sd * quantile(pool, q)`. Otherwise falls back to the
-Student-t(`FALLBACK_DF`) scheme, scaled by `resid_sd * FALLBACK_SCALE`
-(see module docstring) -- already naturally per-location since it uses
-this call's own `resid_sd`.
+`point + quantile(pool, q)` directly. Otherwise falls back to the
+Student-t(`FALLBACK_DF`) scheme, scaled to `resid_sd * FALLBACK_SCALE`
+(see module docstring) -- the one place `resid_sd` is still used, since
+there is no pooled calibration data yet to fall back on.
 """
 function calibrated_quantiles(
     point::Float64, resid_sd::Float64, pool::Vector{Float64},
@@ -497,7 +523,7 @@ function build_forecast_table(seasons, profile, versions_full, hist_by_loc, vidx
                             TARGET, "quantile", q, nat,
                         ))
                     end
-                    push!(pending, PendingTask(target_end, loc, h, point[h], resid_sd))
+                    push!(pending, PendingTask(target_end, loc, h, point[h]))
                 end
             end
         end

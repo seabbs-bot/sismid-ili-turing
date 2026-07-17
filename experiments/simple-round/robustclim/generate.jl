@@ -587,11 +587,13 @@ score_one(forecast, truth) = wis_summary(score_forecasts(
 # Staged sweep grids
 # ---------------------------------------------------------------------
 
-const DECAYS = (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3)
-const TRIM_FRACS = (0.0, 0.1, 0.2, 0.3, 0.4, 0.45)
-const MOVAVG_WINDOWS = (3, 5, 7, 9)
-const SPLINE_LAMBDAS = (10.0, 30.0, 50.0, 100.0, 200.0)
-const BLENDS = (0.0, 0.25, 0.5, 0.75, 1.0)
+const DECAYS = (
+    1.0, 0.995, 0.99, 0.98, 0.95, 0.9, 0.85, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3,
+)
+const TRIM_FRACS = (0.0, 0.1, 0.2, 0.3, 0.4, 0.45, 0.49, 0.499)
+const MOVAVG_WINDOWS = (1, 3, 5, 7, 9, 11)
+const SPLINE_LAMBDAS = (0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 20.0, 30.0, 50.0)
+const BLENDS = (0.1, 0.25, 0.5, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0)
 
 function main()
     hub_path = length(ARGS) >= 1 ? ARGS[1] : nothing

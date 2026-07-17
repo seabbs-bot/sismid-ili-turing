@@ -34,6 +34,13 @@ vintage observation = joint-backfill(latent value, reporting delay)
   time-varying is itself a candidate axis. Vintage data drives this, matching
   what a real-time forecaster saw.
 
+## Architecture
+
+`src/` holds the current front-runner as a loadable `SismidILITuring` package,
+with everything needed to run and submit it at any time.
+`experiments/` iterates around it; a winning candidate is promoted into `src/`
+so the repository is always ready to submit.
+
 ## Search and selection
 
 A tree/beam search rather than a one-shot factorial screen.
@@ -64,6 +71,13 @@ Scoring and selection:
 Inference during the search uses Pathfinder for a fast first pass; promising
 candidates and all finalists are refit with full MCMC. Mooncake is the AD
 backend for every model, and Turing callbacks report fit progress live.
+Fits return FlexiChains `VNChain` objects (Turing's default here); downstream
+code works with that type directly rather than converting to MCMCChains.
+
+Candidate ideas draw on `docs/eda/`, but the EDA itself is provisional and
+iterative: a look-review-restart loop, not a one-shot analysis.
+Do not over-index on the current EDA numbers; treat them as inspiration that
+gets revisited and updated across search rounds.
 
 ## Phases and checkpoints
 

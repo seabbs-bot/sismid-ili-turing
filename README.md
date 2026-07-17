@@ -32,7 +32,14 @@ Read these in order.
    strategy, and the phased plan.
 3. [`docs/infrastructure.md`](docs/infrastructure.md) — tooling, data, scoring,
    and the parallel-agent workflow, filled in as each piece lands.
-4. [`reports/`](reports/) — one report per iteration loop, plus a running index.
+4. [`docs/steer-log.md`](docs/steer-log.md) — a running record of Sam's
+   guidance and the action taken in response.
+5. [`docs/eda/`](docs/eda/) — exploratory analysis, revisited across search
+   rounds rather than fixed once.
+6. [`reports/`](reports/) — one report per iteration loop, plus a running index.
+
+A Documenter site (see `docs/infrastructure.md`) will render the Julia API
+docs and link all of the above in one nav.
 
 ## Status
 
@@ -42,11 +49,13 @@ checklist.
 ## Repository layout
 
 ```
-src/          Julia model, forecasting, hubverse I/O, and scoring tooling
+src/          front-runner Julia model, forecasting, hubverse I/O, scoring;
+              always loadable and ready to run and submit
 scripts/      entry points for data export, screening runs, submission
 data/         Julia-ready data (Arrow), exported from the course R package
-experiments/  candidate model definitions and run configs for the search
+experiments/  candidate model definitions and run configs for the search;
+              winners are promoted into src/
 reports/      one markdown report per iteration loop (+ index and template)
-docs/         brief, plan, infrastructure
+docs/         brief, plan, infrastructure, steer-log, eda
 test/         package tests
 ```

@@ -9,7 +9,7 @@ Filled in as each piece lands, so this document tracks what actually exists.
 |---|---|---|
 | Repo on `seabbs-bot` | done | `seabbs-bot/sismid-ili-turing`, local at `~/code/seabbs/sismid-ili-turing` |
 | Target hub clone | done | `~/code/external/sismid-ili-forecasting-sandbox` |
-| Docs | done | brief, plan, infrastructure, reports index and template |
+| Docs | done | brief, plan, infrastructure, steer-log, eda, reports index and template |
 | Julia project | todo | Turing, Mooncake, Pathfinder, ScoringRules, Arrow, DataFrames |
 | Data export to Arrow | todo | from the course R package `.rda` objects |
 | WIS scoring helper | todo | natural and log scale, on `ScoringRules.jl` |
@@ -17,6 +17,7 @@ Filled in as each piece lands, so this document tracks what actually exists.
 | Forecast + hubverse writer | todo | Phase 1 |
 | Bayesian workflow checks | todo | prior/posterior predictive, residuals; per candidate, Phase 2 |
 | Submission smoke-test PR | todo | proves hubverse mechanics ahead of the finalist PR, Phase 5 |
+| Documenter docs site | todo | renders Julia API docs; links brief, plan, infrastructure, contracts, steer-log, `docs/eda/`, and per-loop reports |
 
 ## Data
 
@@ -47,6 +48,14 @@ origin dates and locations.
 - Turing.jl with Mooncake as the reverse-mode AD backend for all models.
 - Pathfinder for a fast first pass over candidates; full MCMC for finalists.
 - Turing callbacks stream fit progress for live monitoring.
+- FlexiChains is the chains backend.
+  Turing returns FlexiChains `VNChain` objects by default here, and the code
+  works with that type directly rather than converting to MCMCChains.
+
+## Testing
+
+`EpiAwarePackageTools.jl` (EpiAware org) provides the modular test-suite
+scaffolding used across `test/`.
 
 ## Workflow
 

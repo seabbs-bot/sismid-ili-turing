@@ -86,11 +86,16 @@ scored, not only the finalists:
 - Use Mooncake as the reverse-mode automatic differentiation backend for all
   models.
 - Use Turing callbacks to monitor fits in real time.
+- Use FlexiChains as the chains backend.
+  Turing already returns FlexiChains `VNChain` objects by default here, so
+  embrace that rather than forcing MCMCChains.
 
 ## Ways of working
 
 - Use parallel subagents with implement-and-review loops: 5 to 10 subagents
   running at once per round.
+- All implementation work is done by subagents.
+  The orchestrator coordinates and reviews; it does not write code directly.
 - Move fast; do not let caution slow the search down.
 - Run at least 10 rounds of implement-and-review.
 - Per round, use multiple implementers (lower-power models are fine) proposing

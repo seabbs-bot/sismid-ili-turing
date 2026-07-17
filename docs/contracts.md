@@ -1,5 +1,10 @@
 # Interface contracts
 
+Read [docs/lessons.md](lessons.md) before writing a driver that fits a
+model: it covers the shared `fit_and_forecast` path, the
+`generated_draws`-vs-`posterior_draws` bug class, and other hazards
+every driver in this repo has hit at least once.
+
 Shared interfaces so modules built in parallel integrate cleanly.
 All code: max 80 chars per line, no trailing whitespace, Mooncake AD backend
 for any Turing sampling. The package module is `SismidILITuring`; component

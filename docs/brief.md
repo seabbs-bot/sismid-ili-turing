@@ -4,6 +4,11 @@ This is the authoritative statement of what to build and how to work.
 It is written from Sam's instructions.
 When in doubt, follow this document; update it if Sam changes the ask.
 
+Before fitting anything, read [docs/lessons.md](lessons.md): the
+shared `fit_and_forecast` path every driver must use, the
+`generated_draws`-vs-`posterior_draws` bug class, compute/compile
+hazards on the shared box, and the transform actually in use.
+
 ## What we are building
 
 A custom infectious-disease forecasting model, submitted to the online

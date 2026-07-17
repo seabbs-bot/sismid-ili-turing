@@ -54,6 +54,6 @@ export prior_predictive, posterior_predictive, residual_summary,
     bayesian_checks
 
 # Pipeline (pipeline.jl)
-export produce_submission
+export produce_submission, fit_and_forecast
 
 end # module SismidILITuring

@@ -54,7 +54,8 @@ these steps and verifies each before opening the hub PR:
 
 | Candidate | Val WIS (leak-free) | Coverage | Note |
 |---|---|---|---|
-| **conformal-pooled** (pooled seasonal + log + light AR pool w=0.3 + conformal) | **0.2870** | .52 / .91 | marginally best; ties seasstack within noise |
+| **window208 + damped-trend** (on the seasstack stack) | **0.2801** | .56 / .94 | honest best; long-horizon fix (h4 −5.1%), levers leak-independent |
+| conformal-pooled (pooled seasonal + log + light AR pool w=0.3 + conformal) | 0.2870 | .52 / .91 | ties seasstack within noise |
 | **seasstack full stack** (log + Student-t + AR pooling w=0.9) | 0.2891 | .52 / .91 | gains are from log+t+pooling, not the pooled shape |
 | conformal on plain climatology | 0.2917 | .48 / .87 | tuning-free calibration on the clean season point forecast |
 | season model (per-location climatology) | 0.3004 | — | clean merged baseline (PR #79) |

@@ -61,6 +61,24 @@
 # otherwise it submits the (unmodified) round2-stack winner so a
 # forecast still gets produced, and says so in score.txt.
 #
+# LEAKAGE FIX (post-hoc): the first version of this file built its base
+# on `build_seasonal_profile`/`build_revision_profile` ONCE from a fixed
+# `season_year <= 2016` cutoff, reused unchanged across every split --
+# for a validation-season split that cutoff includes THAT SAME season's
+# own future weeks and the entire other validation season, a real leak
+# (see `experiments/simple-round/round2-stack/generate.jl` and its
+# score.txt "LEAKAGE FIX" section, where this was first caught and
+# fixed for the base model this script builds on). Both functions here
+# now take the split's own `forecast_origin` and are rebuilt PER SPLIT
+# from only strictly-prior data, mirroring round2-stack's fix exactly
+# so the two stay comparable. The window208/damped-trend levers
+# themselves do not touch either profile (window_weeks only changes how
+# much AR history `build_model_data` keeps; the damped-trend blend only
+# reshapes the AR's own simulated paths) so they are LEAK-INDEPENDENT --
+# expected, and confirmed below, to survive the fix. The original leaky
+# score.txt is kept as `score-leaky.txt` for an explicit before/after;
+# every number in score.txt itself is now from this leak-free rerun.
+#
 # Usage:
 #   julia --project=<sismid-ili-turing repo> generate.jl [hub_path]
 # writes score.txt alongside this file; writes a hub submission under
@@ -105,15 +123,32 @@ const TRANSFORM = :log
 const SUB_MODEL_ID = "nfidd-longhz"
 
 # ---------------------------------------------------------------------
-# Pooled seasonal shape + backfill correction: identical to
-# round2-stack/generate.jl -- see that file for the full derivation.
+# Pooled seasonal shape + backfill correction: LEAK-FREE, rebuilt PER
+# SPLIT from the split's own `forecast_origin`. Identical in design to
+# round2-stack/generate.jl's functions of the same name (see that file
+# and its score.txt "LEAKAGE FIX" section for the full derivation and
+# the leak this replaces) -- these used to be built ONCE from a fixed
+# `season_year <= 2016` cutoff, which for a validation-season split
+# leaked that same season's own future weeks and the other validation
+# season into the profile used to correct/deseasonalize it.
 # ---------------------------------------------------------------------
 
+"""
+    build_seasonal_profile(hist, forecast_origin; transform, min_support,
+                            smooth_window) -> Dict{Int,Float64}
+
+Pooled week-of-season climatology on the `transform` scale, using only
+`hist` rows strictly before `forecast_origin` -- LEAK-FREE, must be
+rebuilt for every split (the cutoff moves with each split's own
+forecast origin). Otherwise identical pooling design to the previous
+(leaky) version: deviation-from-own-mean, pooled across all 11
+locations, circularly smoothed.
+"""
 function build_seasonal_profile(
-    hist::DataFrame; transform::Symbol, max_season_year::Int,
+    hist::DataFrame, forecast_origin::Date; transform::Symbol,
     min_support::Int, smooth_window::Int,
 )
-    h = hist[season_year.(hist.origin_date) .<= max_season_year, :]
+    h = hist[hist.origin_date .< forecast_origin, :]
     x = to_scale.(h.wili, transform)
     locs = h.location
     woys = week_of_season.(h.origin_date)
@@ -157,12 +192,26 @@ function deseasonalize(
     return R, level
 end
 
+"""
+    build_revision_profile(versions, forecast_origin; transform, max_delay,
+                            min_support, mode, stat)
+        -> Dict{Tuple{String,Int},Float64}
+
+Empirical per-(location, delay) revision profile on the `transform`
+scale, using only `versions` rows with `as_of < forecast_origin` --
+LEAK-FREE, must be rebuilt for every split. `settled` is "the latest
+vintage known as of THIS split's forecast origin", not the dataset's
+true final value -- an honest degradation for origins close to
+`forecast_origin` (whose true settled value isn't knowable yet
+either), not a leak.
+"""
 function build_revision_profile(
-    versions::DataFrame; transform::Symbol, max_delay::Int,
-    min_support::Int, mode::Symbol, stat::Symbol,
+    versions::DataFrame, forecast_origin::Date; transform::Symbol,
+    max_delay::Int, min_support::Int, mode::Symbol, stat::Symbol,
 )
+    vf = versions[versions.as_of .< forecast_origin, :]
     raw = Dict{Tuple{String,Int},Vector{Float64}}()
-    for g in groupby(versions, [:location, :origin_date])
+    for g in groupby(vf, [:location, :origin_date])
         settled_idx = argmax(g.as_of)
         settled = to_scale(g.wili[settled_idx], transform)
         settled_as_of = g.as_of[settled_idx]
@@ -458,12 +507,18 @@ end
 # ---------------------------------------------------------------------
 
 """
-    build_forecast_table(seasons, versions_full, profile; kwargs...)
+    build_forecast_table(seasons, hist, versions_full; kwargs...)
         -> DataFrame
 
 Same seasonal-core + backfill + per-location-AR(6)/fullpool-blend
 pipeline as round2-stack's function of the same name, generalised with
-a `mode` switch:
+a `mode` switch. LEAK-FREE: the pooled seasonal profile and the
+backfill revision profile are rebuilt FRESH for every split from
+`hist`/`versions_full`, restricted to that split's own forecast origin
+(`build_seasonal_profile`/`build_revision_profile` above) -- see those
+functions' docstrings and round2-stack's score.txt "LEAKAGE FIX" note
+for the leak this replaces (an earlier version of this file built both
+profiles ONCE from a fixed `season_year <= 2016` cutoff).
 
 - `:base` reproduces the round2-stack winner exactly (recursive AR(6),
   Student-t innovations, `pool_w` blend).
@@ -480,13 +535,16 @@ a `mode` switch:
   recursion, hence no compounding of the pool-induced reversion).
 
 `window_weeks` overrides the AR/backfill training window length (the
-"longer memory" candidate uses this with `mode=:base`).
+"longer memory" candidate uses this with `mode=:base`); it does not
+affect either profile (only how much AR history `build_model_data`
+keeps), so the window208/damped-trend levers are leak-independent of
+the fix above.
 """
 function build_forecast_table(
-    seasons, versions_full, profile::Dict{Int,Float64};
-    transform::Symbol, backfill_profile::Dict{Tuple{String,Int},Float64},
-    backfill_window::Int=BF_WINDOW, pool_w::Float64=WINNER_POOL_W,
-    model_id::String, window_weeks::Int=WINDOW_WEEKS, mode::Symbol=:base,
+    seasons, hist::DataFrame, versions_full::DataFrame;
+    transform::Symbol, backfill_window::Int=BF_WINDOW,
+    pool_w::Float64=WINNER_POOL_W, model_id::String,
+    window_weeks::Int=WINDOW_WEEKS, mode::Symbol=:base,
     mom_weight::Float64=0.0, mom_decay::Float64=0.0, mom_window::Int=4,
     damp_alpha::Float64=0.3, damp_beta::Float64=0.1, damp_phi::Float64=0.9,
     damp_blend_max::Float64=0.0,
@@ -505,6 +563,16 @@ function build_forecast_table(
             season; allow_test_season=(season in TEST_SEASONS),
         )
         for split in splits
+            forecast_origin = maximum(split.origin_date)
+            profile = build_seasonal_profile(
+                hist, forecast_origin; transform=transform,
+                min_support=MIN_SUPPORT, smooth_window=SMOOTH_WINDOW,
+            )
+            backfill_profile = build_revision_profile(
+                versions_full, forecast_origin; transform=transform,
+                max_delay=backfill_window, min_support=MIN_SUPPORT,
+                mode=BF_MODE, stat=BF_STAT,
+            )
             data = build_model_data(
                 split; Dmax=DMAX, transform=transform,
                 window_weeks=window_weeks, versions=versions_full,
@@ -624,48 +692,71 @@ function load_oracle(hub_path)
     return dropmissing(truth)
 end
 
+"""
+    coverage(forecast, truth, level) -> Float64
+
+Empirical coverage of the nominal `level` central interval. Identical
+to round2-stack/generate.jl's function of the same name.
+"""
+function coverage(forecast::DataFrame, truth::DataFrame, level::Float64)
+    a = (1 - level) / 2
+    task_cols = [:location, :origin_date, :horizon, :target_end_date]
+    lo = forecast[isapprox.(forecast.output_type_id, a; atol=1e-6), :]
+    hi = forecast[isapprox.(forecast.output_type_id, 1 - a; atol=1e-6), :]
+    lo_r = rename(lo[:, vcat(task_cols, [:value])], :value => :lo)
+    hi_r = rename(hi[:, vcat(task_cols, [:value])], :value => :hi)
+    joined = innerjoin(lo_r, hi_r, on=task_cols)
+    joined = innerjoin(joined, truth, on=[:location, :target_end_date])
+    return mean(joined.lo .<= joined.value .<= joined.hi)
+end
+
 # ---------------------------------------------------------------------
 # Sweep
 # ---------------------------------------------------------------------
 
 """
-    run_combo(label, seasons, versions_full, profile, backfill_profile;
-              truth, kwargs...) -> NamedTuple
+    run_combo(label, seasons, hist, versions_full; truth, kwargs...)
+        -> NamedTuple
 
-Fits/forecasts/scores one combo and returns its overall + per-horizon
-mean WIS alongside the forecast table itself.
+Fits/forecasts/scores one combo (LEAK-FREE: `hist`/`versions_full` are
+the raw historical tables, and `build_forecast_table` rebuilds both
+profiles per split from them) and returns its overall + per-horizon
+mean WIS, SD, and cov50/cov90 alongside the forecast table itself.
 """
 function run_combo(
-    label, seasons, versions_full, profile, backfill_profile; truth,
+    label, seasons, hist, versions_full; truth,
     transform=TRANSFORM, pool_w=WINNER_POOL_W, window_weeks=WINDOW_WEEKS,
     mode::Symbol=:base, mom_weight=0.0, mom_decay=0.0, mom_window=4,
     damp_alpha=0.3, damp_beta=0.1, damp_phi=0.9, damp_blend_max=0.0,
 )
     fc = build_forecast_table(
-        seasons, versions_full, profile; transform=transform,
-        backfill_profile=backfill_profile, pool_w=pool_w, model_id=label,
-        window_weeks=window_weeks, mode=mode, mom_weight=mom_weight,
-        mom_decay=mom_decay, mom_window=mom_window, damp_alpha=damp_alpha,
-        damp_beta=damp_beta, damp_phi=damp_phi,
-        damp_blend_max=damp_blend_max,
+        seasons, hist, versions_full; transform=transform,
+        pool_w=pool_w, model_id=label, window_weeks=window_weeks,
+        mode=mode, mom_weight=mom_weight, mom_decay=mom_decay,
+        mom_window=mom_window, damp_alpha=damp_alpha, damp_beta=damp_beta,
+        damp_phi=damp_phi, damp_blend_max=damp_blend_max,
     )
     scored = score_forecasts(fc, truth; scale=:natural)
     summ = wis_summary(scored)[1, :]
     by_h = combine(groupby(scored, :horizon), :wis => mean => :mean_wis)
     sort!(by_h, :horizon)
     hw = Dict(row.horizon => row.mean_wis for row in eachrow(by_h))
+    cov50 = coverage(fc, truth, 0.5)
+    cov90 = coverage(fc, truth, 0.9)
 
     println("  $(rpad(label, 30)) mean=$(round(summ.mean_wis; digits=4)) " *
             "h1=$(round(hw[1]; digits=4)) h2=$(round(hw[2]; digits=4)) " *
-            "h3=$(round(hw[3]; digits=4)) h4=$(round(hw[4]; digits=4))")
+            "h3=$(round(hw[3]; digits=4)) h4=$(round(hw[4]; digits=4)) " *
+            "cov50=$(round(cov50; digits=3)) cov90=$(round(cov90; digits=3))")
 
     return (
         label=label, mean_wis=summ.mean_wis, sd_wis=summ.sd_wis,
-        h1=hw[1], h2=hw[2], h3=hw[3], h4=hw[4], forecast=fc,
-        transform=transform, pool_w=pool_w, window_weeks=window_weeks,
-        mode=mode, mom_weight=mom_weight, mom_decay=mom_decay,
-        mom_window=mom_window, damp_alpha=damp_alpha, damp_beta=damp_beta,
-        damp_phi=damp_phi, damp_blend_max=damp_blend_max,
+        h1=hw[1], h2=hw[2], h3=hw[3], h4=hw[4], cov50=cov50, cov90=cov90,
+        forecast=fc, transform=transform, pool_w=pool_w,
+        window_weeks=window_weeks, mode=mode, mom_weight=mom_weight,
+        mom_decay=mom_decay, mom_window=mom_window, damp_alpha=damp_alpha,
+        damp_beta=damp_beta, damp_phi=damp_phi,
+        damp_blend_max=damp_blend_max,
     )
 end
 
@@ -697,7 +788,9 @@ function print_and_write_row(io, r, baseline)
                  "h1=$(round(r.h1; digits=4))(d=$(round(d1; digits=4))) " *
                  "h2=$(round(r.h2; digits=4))(d=$(round(d2; digits=4))) " *
                  "h3=$(round(r.h3; digits=4))(d=$(round(d3; digits=4))) " *
-                 "h4=$(round(r.h4; digits=4))(d=$(round(d4; digits=4)))")
+                 "h4=$(round(r.h4; digits=4))(d=$(round(d4; digits=4))) " *
+                 "cov50=$(round(r.cov50; digits=3)) " *
+                 "cov90=$(round(r.cov90; digits=3))")
 end
 
 function main(hub_path::Union{Nothing,AbstractString}=nothing)
@@ -705,24 +798,12 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
     hist = load_series("flu_data_hhs")
     versions_full = load_series("flu_data_hhs_versions")
     truth = load_oracle(HUB_PATH_DEFAULT)
-    training_versions = versions_full[
-        season_year.(versions_full.origin_date) .<= MAX_TRAIN_SEASON_YEAR, :,
-    ]
-
-    profile = build_seasonal_profile(
-        hist; transform=TRANSFORM, max_season_year=MAX_TRAIN_SEASON_YEAR,
-        min_support=MIN_SUPPORT, smooth_window=SMOOTH_WINDOW,
-    )
-    bf_profile = build_revision_profile(
-        training_versions; transform=TRANSFORM, max_delay=BF_WINDOW,
-        min_support=MIN_SUPPORT, mode=BF_MODE, stat=BF_STAT,
-    )
 
     results = NamedTuple[]
 
-    println("=== baseline reproduction (round2-stack winner) ===")
+    println("=== baseline reproduction (round2-stack winner, LEAK-FREE) ===")
     baseline = run_combo(
-        "baseline", VALIDATION_ONLY, versions_full, profile, bf_profile;
+        "baseline", VALIDATION_ONLY, hist, versions_full;
         truth=truth, mode=:base,
     )
     push!(results, baseline)
@@ -730,8 +811,8 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
     println("\n=== 1. momentum sweep ===")
     for (w, d) in ((0.3, 0.5), (0.3, 0.8), (0.6, 0.5), (0.6, 0.8), (1.0, 0.7))
         push!(results, run_combo(
-            "momentum(w=$w,decay=$d)", VALIDATION_ONLY, versions_full,
-            profile, bf_profile; truth=truth, mode=:momentum,
+            "momentum(w=$w,decay=$d)", VALIDATION_ONLY, hist,
+            versions_full; truth=truth, mode=:momentum,
             mom_weight=w, mom_decay=d, mom_window=4,
         ))
     end
@@ -739,8 +820,8 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
     println("\n=== 2. damped-trend blend sweep ===")
     for (phi, bmax) in ((0.9, 0.3), (0.9, 0.5), (0.8, 0.5))
         push!(results, run_combo(
-            "damped(phi=$phi,blend=$bmax)", VALIDATION_ONLY, versions_full,
-            profile, bf_profile; truth=truth, mode=:damped,
+            "damped(phi=$phi,blend=$bmax)", VALIDATION_ONLY, hist,
+            versions_full; truth=truth, mode=:damped,
             damp_alpha=0.3, damp_beta=0.1, damp_phi=phi,
             damp_blend_max=bmax,
         ))
@@ -749,8 +830,8 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
     println("\n=== 3. direct per-horizon AR sweep ===")
     for pw in (0.0, 0.5, 0.9)
         push!(results, run_combo(
-            "direct(pool_w=$pw)", VALIDATION_ONLY, versions_full, profile,
-            bf_profile; truth=truth, mode=:direct, pool_w=pw,
+            "direct(pool_w=$pw)", VALIDATION_ONLY, hist, versions_full;
+            truth=truth, mode=:direct, pool_w=pw,
         ))
     end
 
@@ -758,8 +839,8 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
     window_results = NamedTuple[]
     for ww in (130, 156, 182, 208)
         r = run_combo(
-            "window$ww", VALIDATION_ONLY, versions_full, profile,
-            bf_profile; truth=truth, mode=:base, window_weeks=ww,
+            "window$ww", VALIDATION_ONLY, hist, versions_full;
+            truth=truth, mode=:base, window_weeks=ww,
         )
         push!(results, r)
         push!(window_results, r)
@@ -771,13 +852,13 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
     println("\n=== 5. stacking damped/direct on top of the best window ===")
     push!(results, run_combo(
         "window$(best_window.window_weeks)+damped(0.9,0.3)",
-        VALIDATION_ONLY, versions_full, profile, bf_profile; truth=truth,
+        VALIDATION_ONLY, hist, versions_full; truth=truth,
         mode=:damped, window_weeks=best_window.window_weeks,
         damp_alpha=0.3, damp_beta=0.1, damp_phi=0.9, damp_blend_max=0.3,
     ))
     push!(results, run_combo(
         "window$(best_window.window_weeks)+direct(pool=0.9)",
-        VALIDATION_ONLY, versions_full, profile, bf_profile; truth=truth,
+        VALIDATION_ONLY, hist, versions_full; truth=truth,
         mode=:direct, window_weeks=best_window.window_weeks, pool_w=0.9,
     ))
 
@@ -785,7 +866,7 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
     for (phi, bmax) in ((0.9, 0.2), (0.9, 0.4), (0.95, 0.3), (0.85, 0.3))
         push!(results, run_combo(
             "window$(best_window.window_weeks)+damped($phi,$bmax)",
-            VALIDATION_ONLY, versions_full, profile, bf_profile;
+            VALIDATION_ONLY, hist, versions_full;
             truth=truth, mode=:damped, window_weeks=best_window.window_weeks,
             damp_alpha=0.3, damp_beta=0.1, damp_phi=phi, damp_blend_max=bmax,
         ))
@@ -817,16 +898,100 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
         println(io, "validation seasons (1, 2) only, natural-scale WIS")
         println(io, "runtime: $(round(time() - t0; digits=1))s")
         println(io)
-        println(io, "round2-stack winner (log+tstudent+pool(w=0.9)): " *
+        println(io, "=" ^ 69)
+        println(io, "LEAKAGE FIX (honest rescore) -- READ THIS FIRST")
+        println(io, "=" ^ 69)
+        println(io, "The first version of this file built its seasonal " *
+                     "core on `build_seasonal_profile`/`build_revision_" *
+                     "profile` ONCE from a fixed `season_year <= 2016` " *
+                     "cutoff, reused across every split -- a real leak for " *
+                     "validation-season splits (see round2-stack/generate." *
+                     "jl and its score.txt, where this was first caught). " *
+                     "Both are now rebuilt PER SPLIT from only strictly- " *
+                     "prior data. window_weeks/damped-trend/momentum/direct " *
+                     "do not touch either profile, so they are LEAK-" *
+                     "INDEPENDENT of the fix -- expected, and confirmed " *
+                     "below, to survive it. The old leaky sweep is kept " *
+                     "verbatim as score-leaky.txt for an explicit before/" *
+                     "after; every number below is from this leak-free " *
+                     "rerun.")
+        println(io)
+        println(io, "Honest headline numbers (validation seasons 1,2, " *
+                     "natural-scale WIS):")
+        println(io)
+        println(io, "  model                                   mean_wis  " *
+                     "sd_wis  cov50  cov90")
+        println(io, "  full stack, LEAK-FREE (baseline here)     " *
+                     "$(round(baseline.mean_wis; digits=4))  " *
+                     "$(round(baseline.sd_wis; digits=4))  " *
+                     "$(round(baseline.cov50; digits=3))  " *
+                     "$(round(baseline.cov90; digits=3))")
+        println(io, "  window208+damped, LEAK-FREE (this winner) " *
+                     "$(round(winner.mean_wis; digits=4))  " *
+                     "$(round(winner.sd_wis; digits=4))  " *
+                     "$(round(winner.cov50; digits=3))  " *
+                     "$(round(winner.cov90; digits=3))")
+        println(io, "  " * "-"^63)
+        println(io, "  full stack, LEAKY (original longhz baseline)      " *
+                     "0.2601  0.2587  0.565  0.943  (score-leaky.txt)")
+        println(io, "  window208+damped(0.9,0.2), LEAKY (original " *
+                     "winner)                                       " *
+                     "0.2524  --      --     --     (score-leaky.txt)")
+        println(io, "  clean season model (per-location climatology, " *
+                     "leak-free by construction)                    " *
+                     "0.3004  0.3890  --     --     " *
+                     "(experiments/simple-round/season/score.txt)")
+        println(io, "  conformal-on-plain (same point forecast, split- " *
+                     "conformal intervals)                           " *
+                     "0.2917  0.3451  0.48   0.871  " *
+                     "(experiments/simple-round/conformal/score.txt)")
+        println(io)
+        pct_baseline = 100 * (baseline.mean_wis - winner.mean_wis) /
+                       baseline.mean_wis
+        pct_vs_season = 100 * (0.3004 - winner.mean_wis) / 0.3004
+        pct_vs_conformal = 100 * (0.2917 - winner.mean_wis) / 0.2917
+        println(io, "Reading this table:")
+        pct_inflate_base = 100 * (baseline.mean_wis - 0.2601) / 0.2601
+        pct_inflate_win = 100 * (winner.mean_wis - 0.2524) / 0.2524
+        println(io, "  - The leak inflated both numbers by a similar " *
+                     "absolute amount (full stack: 0.2601 -> " *
+                     "$(round(baseline.mean_wis; digits=4)), " *
+                     "$(round(pct_inflate_base; digits=1))%; " *
+                     "window208+damped: 0.2524 -> " *
+                     "$(round(winner.mean_wis; digits=4)), " *
+                     "$(round(pct_inflate_win; digits=1))%) -- expected, " *
+                     "since both share the same profile-building code and " *
+                     "validation splits.")
+        println(io, "  - The window208+damped-trend lever is NOT an " *
+                     "artifact of the leak: stacked on the now-leak-free " *
+                     "full stack, it still cuts mean WIS by " *
+                     "$(round(pct_baseline; digits=2))% " *
+                     "($(round(baseline.mean_wis; digits=4)) -> " *
+                     "$(round(winner.mean_wis; digits=4))), and beats both " *
+                     "the leak-free `season` model by " *
+                     "$(round(pct_vs_season; digits=2))% and " *
+                     "leak-free conformal-on-plain by " *
+                     "$(round(pct_vs_conformal; digits=2))%.")
+        println(io, "  - By horizon, the honest gain is still concentrated " *
+                     "at h=3/4 exactly as hypothesized (see the per-" *
+                     "horizon table below) -- the leak inflated the " *
+                     "ABSOLUTE numbers but did not manufacture the h=3/4-" *
+                     "targeted shape of the improvement.")
+        println(io)
+        println(io, "round2-stack winner (log+tstudent+pool(w=0.9)), " *
+                     "LEAK-FREE: " *
                      "mean_wis=$(round(baseline.mean_wis; digits=4)) " *
                      "sd_wis=$(round(baseline.sd_wis; digits=4))")
         println(io, "  by horizon: h1=$(round(baseline.h1; digits=4)) " *
                      "h2=$(round(baseline.h2; digits=4)) " *
                      "h3=$(round(baseline.h3; digits=4)) " *
                      "h4=$(round(baseline.h4; digits=4))")
-        println(io, "  (confirms the monotone h=1..4 degradation reported " *
-                     "in round2-stack/score.txt: h3 and h4 are ~48% and " *
-                     "~63% worse than h1.)")
+        pct_h3 = 100 * (baseline.h3 - baseline.h1) / baseline.h1
+        pct_h4 = 100 * (baseline.h4 - baseline.h1) / baseline.h1
+        println(io, "  (still confirms the monotone h=1..4 degradation " *
+                     "reported in round2-stack/score.txt, honestly: h3 " *
+                     "and h4 are $(round(pct_h3; digits=1))% and " *
+                     "$(round(pct_h4; digits=1))% worse than h1.)")
         println(io)
         println(io, "=== every candidate, WIS by horizon vs baseline " *
                      "(d = baseline - candidate, positive = improvement) " *
@@ -864,47 +1029,33 @@ function main(hub_path::Union{Nothing,AbstractString}=nothing)
                          "(baseline $(round(baseline.h3; digits=4)))")
             println(io, "  h4: $(round(winner.h4; digits=4)) " *
                          "(baseline $(round(baseline.h4; digits=4)))")
-            println(io, "Submitted (model_id nfidd-longhz) across all five " *
-                         "seasons with this configuration.")
+            if hub_path === nothing
+                println(io, "No hub_path given this run -- hub submissions " *
+                             "are PAUSED (Sam, see submissions/README.md), " *
+                             "so no model-output was written; this is a " *
+                             "validation-only honest rescore.")
+            else
+                println(io, "Submitted (model_id nfidd-longhz) across all " *
+                             "five seasons with this configuration.")
+            end
         end
     end
 
     if hub_path !== nothing
         println("\nrefitting winner ($(winner.label)) across all 5 " *
                 "seasons for hub submission ...")
-        sub_profile, sub_bf_profile = if winner.window_weeks != WINDOW_WEEKS ||
-                                          winner.transform != TRANSFORM
-            # None of the current candidates change transform, and the
-            # profile/backfill profile do not depend on window_weeks
-            # (only build_model_data's history cap does), so the
-            # validation-fit profiles are reused unchanged. Recomputed
-            # here defensively in case a future candidate does change
-            # transform.
-            (
-                build_seasonal_profile(
-                    hist; transform=winner.transform,
-                    max_season_year=MAX_TRAIN_SEASON_YEAR,
-                    min_support=MIN_SUPPORT, smooth_window=SMOOTH_WINDOW,
-                ),
-                build_revision_profile(
-                    training_versions; transform=winner.transform,
-                    max_delay=BF_WINDOW, min_support=MIN_SUPPORT,
-                    mode=BF_MODE, stat=BF_STAT,
-                ),
-            )
-        else
-            (profile, bf_profile)
-        end
-
+        # LEAK-FREE: build_forecast_table rebuilds both profiles fresh
+        # per split from `hist`/`versions_full` itself now, so no
+        # separate profile needs to be prepared here (unlike the old
+        # static-per-transform version of this driver).
         full_fc = build_forecast_table(
-            (1, 2, 3, 4, 5), versions_full, sub_profile;
-            transform=winner.transform, backfill_profile=sub_bf_profile,
-            pool_w=winner.pool_w, model_id=SUB_MODEL_ID,
-            window_weeks=winner.window_weeks, mode=winner.mode,
-            mom_weight=winner.mom_weight, mom_decay=winner.mom_decay,
-            mom_window=winner.mom_window, damp_alpha=winner.damp_alpha,
-            damp_beta=winner.damp_beta, damp_phi=winner.damp_phi,
-            damp_blend_max=winner.damp_blend_max,
+            (1, 2, 3, 4, 5), hist, versions_full;
+            transform=winner.transform, pool_w=winner.pool_w,
+            model_id=SUB_MODEL_ID, window_weeks=winner.window_weeks,
+            mode=winner.mode, mom_weight=winner.mom_weight,
+            mom_decay=winner.mom_decay, mom_window=winner.mom_window,
+            damp_alpha=winner.damp_alpha, damp_beta=winner.damp_beta,
+            damp_phi=winner.damp_phi, damp_blend_max=winner.damp_blend_max,
         )
         write_submission(full_fc, hub_path)
         write_metadata(

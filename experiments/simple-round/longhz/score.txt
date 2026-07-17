@@ -1,60 +1,81 @@
 long-horizon (h=3,4) fix -- simple-round
 validation seasons (1, 2) only, natural-scale WIS
-runtime: 78.2s
+runtime: 95.9s
 
-round2-stack winner (log+tstudent+pool(w=0.9)): mean_wis=0.2601 sd_wis=0.2587
-  by horizon: h1=0.1943 h2=0.2414 h3=0.2873 h4=0.3176
-  (confirms the monotone h=1..4 degradation reported in round2-stack/score.txt: h3 and h4 are ~48% and ~63% worse than h1.)
+=====================================================================
+LEAKAGE FIX (honest rescore) -- READ THIS FIRST
+=====================================================================
+The first version of this file built its seasonal core on `build_seasonal_profile`/`build_revision_profile` ONCE from a fixed `season_year <= 2016` cutoff, reused across every split -- a real leak for validation-season splits (see round2-stack/generate.jl and its score.txt, where this was first caught). Both are now rebuilt PER SPLIT from only strictly- prior data. window_weeks/damped-trend/momentum/direct do not touch either profile, so they are LEAK-INDEPENDENT of the fix -- expected, and confirmed below, to survive it. The old leaky sweep is kept verbatim as score-leaky.txt for an explicit before/after; every number below is from this leak-free rerun.
+
+Honest headline numbers (validation seasons 1,2, natural-scale WIS):
+
+  model                                   mean_wis  sd_wis  cov50  cov90
+  full stack, LEAK-FREE (baseline here)     0.2891  0.2987  0.521  0.914
+  window208+damped, LEAK-FREE (this winner) 0.2801  0.28  0.564  0.939
+  ---------------------------------------------------------------
+  full stack, LEAKY (original longhz baseline)      0.2601  0.2587  0.565  0.943  (score-leaky.txt)
+  window208+damped(0.9,0.2), LEAKY (original winner)                                       0.2524  --      --     --     (score-leaky.txt)
+  clean season model (per-location climatology, leak-free by construction)                    0.3004  0.3890  --     --     (experiments/simple-round/season/score.txt)
+  conformal-on-plain (same point forecast, split- conformal intervals)                           0.2917  0.3451  0.48   0.871  (experiments/simple-round/conformal/score.txt)
+
+Reading this table:
+  - The leak inflated both numbers by a similar absolute amount (full stack: 0.2601 -> 0.2891, 11.2%; window208+damped: 0.2524 -> 0.2801, 11.0%) -- expected, since both share the same profile-building code and validation splits.
+  - The window208+damped-trend lever is NOT an artifact of the leak: stacked on the now-leak-free full stack, it still cuts mean WIS by 3.13% (0.2891 -> 0.2801), and beats both the leak-free `season` model by 6.77% and leak-free conformal-on-plain by 3.99%.
+  - By horizon, the honest gain is still concentrated at h=3/4 exactly as hypothesized (see the per-horizon table below) -- the leak inflated the ABSOLUTE numbers but did not manufacture the h=3/4-targeted shape of the improvement.
+
+round2-stack winner (log+tstudent+pool(w=0.9)), LEAK-FREE: mean_wis=0.2891 sd_wis=0.2987
+  by horizon: h1=0.2245 h2=0.2716 h3=0.3154 h4=0.345
+  (still confirms the monotone h=1..4 degradation reported in round2-stack/score.txt, honestly: h3 and h4 are 40.5% and 53.7% worse than h1.)
 
 === every candidate, WIS by horizon vs baseline (d = baseline - candidate, positive = improvement) ===
-  baseline                       mean=0.2601 (d=0.0)  h1=0.1943(d=0.0) h2=0.2414(d=0.0) h3=0.2873(d=0.0) h4=0.3176(d=0.0)
-  momentum(w=0.3,decay=0.5)      mean=0.2611 (d=-0.001)  h1=0.1965(d=-0.0023) h2=0.2431(d=-0.0017) h3=0.2882(d=-0.001) h4=0.3164(d=0.0012)
-  momentum(w=0.3,decay=0.8)      mean=0.2619 (d=-0.0018)  h1=0.1965(d=-0.0023) h2=0.2441(d=-0.0028) h3=0.2898(d=-0.0026) h4=0.3173(d=0.0003)
-  momentum(w=0.6,decay=0.5)      mean=0.2654 (d=-0.0053)  h1=0.202(d=-0.0078) h2=0.2486(d=-0.0073) h3=0.2925(d=-0.0053) h4=0.3183(d=-0.0007)
-  momentum(w=0.6,decay=0.8)      mean=0.2701 (d=-0.01)  h1=0.202(d=-0.0078) h2=0.2528(d=-0.0115) h3=0.2999(d=-0.0127) h4=0.3256(d=-0.0081)
-  momentum(w=1.0,decay=0.7)      mean=0.2847 (d=-0.0246)  h1=0.2147(d=-0.0204) h2=0.2694(d=-0.028) h3=0.3163(d=-0.0291) h4=0.3386(d=-0.0211)
-  damped(phi=0.9,blend=0.3)      mean=0.2579 (d=0.0022)  h1=0.1943(d=0.0) h2=0.2402(d=0.0011) h3=0.2841(d=0.0031) h4=0.3131(d=0.0045)
-  damped(phi=0.9,blend=0.5)      mean=0.2596 (d=0.0005)  h1=0.1943(d=0.0) h2=0.2401(d=0.0013) h3=0.2851(d=0.0021) h4=0.319(d=-0.0015)
-  damped(phi=0.8,blend=0.5)      mean=0.2594 (d=0.0007)  h1=0.1943(d=0.0) h2=0.2404(d=0.001) h3=0.2852(d=0.0021) h4=0.3177(d=-0.0002)
-  direct(pool_w=0.0)             mean=0.2708 (d=-0.0106)  h1=0.2013(d=-0.0071) h2=0.2481(d=-0.0067) h3=0.3003(d=-0.0131) h4=0.3333(d=-0.0157)
-  direct(pool_w=0.5)             mean=0.2619 (d=-0.0018)  h1=0.1959(d=-0.0016) h2=0.2417(d=-0.0003) h3=0.2895(d=-0.0023) h4=0.3205(d=-0.0029)
-  direct(pool_w=0.9)             mean=0.2592 (d=0.0009)  h1=0.1946(d=-0.0003) h2=0.2403(d=0.001) h3=0.2857(d=0.0016) h4=0.3163(d=0.0013)
-  window130                      mean=0.2572 (d=0.0029)  h1=0.1935(d=0.0008) h2=0.2398(d=0.0016) h3=0.2835(d=0.0037) h4=0.3122(d=0.0054)
-  window156                      mean=0.2553 (d=0.0048)  h1=0.1935(d=0.0008) h2=0.2384(d=0.003) h3=0.2809(d=0.0063) h4=0.3083(d=0.0092)
-  window182                      mean=0.2555 (d=0.0047)  h1=0.1932(d=0.0011) h2=0.2385(d=0.0028) h3=0.2814(d=0.0059) h4=0.3087(d=0.0088)
-  window208                      mean=0.2542 (d=0.006)  h1=0.1936(d=0.0007) h2=0.238(d=0.0034) h3=0.2795(d=0.0078) h4=0.3056(d=0.012)
-  window208+damped(0.9,0.3)      mean=0.2525 (d=0.0076)  h1=0.1936(d=0.0007) h2=0.2365(d=0.0048) h3=0.2767(d=0.0105) h4=0.3032(d=0.0143)
-  window208+direct(pool=0.9)     mean=0.2543 (d=0.0058)  h1=0.1938(d=0.0005) h2=0.2377(d=0.0037) h3=0.2793(d=0.008) h4=0.3065(d=0.0111)
-  window208+damped(0.9,0.2)      mean=0.2524 (d=0.0077)  h1=0.1936(d=0.0007) h2=0.2369(d=0.0045) h3=0.277(d=0.0103) h4=0.3021(d=0.0154)
-  window208+damped(0.9,0.4)      mean=0.2533 (d=0.0068)  h1=0.1936(d=0.0007) h2=0.2364(d=0.005) h3=0.2772(d=0.0101) h4=0.3063(d=0.0113)
-  window208+damped(0.95,0.3)     mean=0.2526 (d=0.0075)  h1=0.1936(d=0.0007) h2=0.2364(d=0.0049) h3=0.2767(d=0.0106) h4=0.3037(d=0.0139)
-  window208+damped(0.85,0.3)     mean=0.2526 (d=0.0075)  h1=0.1936(d=0.0007) h2=0.2367(d=0.0047) h3=0.2769(d=0.0103) h4=0.3034(d=0.0142)
+  baseline                       mean=0.2891 (d=0.0)  h1=0.2245(d=0.0) h2=0.2716(d=0.0) h3=0.3154(d=0.0) h4=0.345(d=0.0) cov50=0.521 cov90=0.914
+  momentum(w=0.3,decay=0.5)      mean=0.2923 (d=-0.0032)  h1=0.229(d=-0.0045) h2=0.276(d=-0.0043) h3=0.3185(d=-0.0031) h4=0.3458(d=-0.0009) cov50=0.533 cov90=0.908
+  momentum(w=0.3,decay=0.8)      mean=0.2941 (d=-0.005)  h1=0.229(d=-0.0045) h2=0.2777(d=-0.006) h3=0.3214(d=-0.006) h4=0.3483(d=-0.0033) cov50=0.534 cov90=0.908
+  momentum(w=0.6,decay=0.5)      mean=0.2994 (d=-0.0103)  h1=0.2372(d=-0.0128) h2=0.2845(d=-0.0129) h3=0.3256(d=-0.0103) h4=0.3501(d=-0.0052) cov50=0.526 cov90=0.907
+  momentum(w=0.6,decay=0.8)      mean=0.3063 (d=-0.0172)  h1=0.2372(d=-0.0128) h2=0.2904(d=-0.0188) h3=0.3361(d=-0.0207) h4=0.3614(d=-0.0164) cov50=0.52 cov90=0.905
+  momentum(w=1.0,decay=0.7)      mean=0.326 (d=-0.0369)  h1=0.2541(d=-0.0296) h2=0.3125(d=-0.0408) h3=0.3579(d=-0.0426) h4=0.3795(d=-0.0345) cov50=0.505 cov90=0.893
+  damped(phi=0.9,blend=0.3)      mean=0.2858 (d=0.0033)  h1=0.2245(d=0.0) h2=0.2694(d=0.0022) h3=0.3107(d=0.0047) h4=0.3385(d=0.0064) cov50=0.529 cov90=0.916
+  damped(phi=0.9,blend=0.5)      mean=0.2867 (d=0.0024)  h1=0.2245(d=0.0) h2=0.2685(d=0.0031) h3=0.3106(d=0.0047) h4=0.343(d=0.0019) cov50=0.534 cov90=0.918
+  damped(phi=0.8,blend=0.5)      mean=0.2866 (d=0.0026)  h1=0.2245(d=0.0) h2=0.2689(d=0.0027) h3=0.3108(d=0.0045) h4=0.342(d=0.003) cov50=0.531 cov90=0.917
+  direct(pool_w=0.0)             mean=0.2998 (d=-0.0106)  h1=0.2292(d=-0.0047) h2=0.2792(d=-0.0076) h3=0.3289(d=-0.0135) h4=0.3617(d=-0.0167) cov50=0.497 cov90=0.909
+  direct(pool_w=0.5)             mean=0.2907 (d=-0.0016)  h1=0.2248(d=-0.0003) h2=0.2719(d=-0.0002) h3=0.3177(d=-0.0023) h4=0.3483(d=-0.0033) cov50=0.507 cov90=0.924
+  direct(pool_w=0.9)             mean=0.2878 (d=0.0013)  h1=0.2246(d=-0.0001) h2=0.2697(d=0.0019) h3=0.3134(d=0.0019) h4=0.3436(d=0.0014) cov50=0.527 cov90=0.935
+  window130                      mean=0.2862 (d=0.003)  h1=0.2247(d=-0.0002) h2=0.2704(d=0.0013) h3=0.3117(d=0.0037) h4=0.338(d=0.007) cov50=0.551 cov90=0.928
+  window156                      mean=0.2839 (d=0.0053)  h1=0.2236(d=0.0009) h2=0.2686(d=0.003) h3=0.3091(d=0.0062) h4=0.3341(d=0.0109) cov50=0.547 cov90=0.928
+  window182                      mean=0.2841 (d=0.005)  h1=0.2238(d=0.0007) h2=0.2689(d=0.0027) h3=0.3096(d=0.0058) h4=0.3341(d=0.0109) cov50=0.554 cov90=0.935
+  window208                      mean=0.2831 (d=0.006)  h1=0.2239(d=0.0005) h2=0.2685(d=0.0031) h3=0.3083(d=0.007) h4=0.3316(d=0.0133) cov50=0.562 cov90=0.936
+  window208+damped(0.9,0.3)      mean=0.2801 (d=0.009)  h1=0.2239(d=0.0005) h2=0.2658(d=0.0058) h3=0.3035(d=0.0119) h4=0.3273(d=0.0177) cov50=0.562 cov90=0.938
+  window208+direct(pool=0.9)     mean=0.2827 (d=0.0064)  h1=0.2239(d=0.0005) h2=0.2675(d=0.0041) h3=0.3076(d=0.0078) h4=0.3318(d=0.0132) cov50=0.559 cov90=0.944
+  window208+damped(0.9,0.2)      mean=0.2805 (d=0.0087)  h1=0.2239(d=0.0005) h2=0.2666(d=0.0051) h3=0.3045(d=0.0109) h4=0.3268(d=0.0181) cov50=0.561 cov90=0.938
+  window208+damped(0.9,0.4)      mean=0.2805 (d=0.0086)  h1=0.2239(d=0.0005) h2=0.2652(d=0.0064) h3=0.3032(d=0.0121) h4=0.3296(d=0.0154) cov50=0.564 cov90=0.936
+  window208+damped(0.95,0.3)     mean=0.2801 (d=0.0091)  h1=0.2239(d=0.0005) h2=0.2656(d=0.0061) h3=0.3033(d=0.0121) h4=0.3274(d=0.0175) cov50=0.564 cov90=0.939
+  window208+damped(0.85,0.3)     mean=0.2803 (d=0.0088)  h1=0.2239(d=0.0005) h2=0.266(d=0.0057) h3=0.3038(d=0.0116) h4=0.3275(d=0.0174) cov50=0.557 cov90=0.937
 
 === ranked by overall mean WIS ===
-  window208+damped(0.9,0.2)      mean_wis=0.2524 [net-positive h3/4]
-  window208+damped(0.9,0.3)      mean_wis=0.2525 [net-positive h3/4]
-  window208+damped(0.95,0.3)     mean_wis=0.2526 [net-positive h3/4]
-  window208+damped(0.85,0.3)     mean_wis=0.2526 [net-positive h3/4]
-  window208+damped(0.9,0.4)      mean_wis=0.2533 [net-positive h3/4]
-  window208                      mean_wis=0.2542 [net-positive h3/4]
-  window208+direct(pool=0.9)     mean_wis=0.2543 [net-positive h3/4]
-  window156                      mean_wis=0.2553 [net-positive h3/4]
-  window182                      mean_wis=0.2555 [net-positive h3/4]
-  window130                      mean_wis=0.2572 [net-positive h3/4]
-  damped(phi=0.9,blend=0.3)      mean_wis=0.2579 [net-positive h3/4]
-  direct(pool_w=0.9)             mean_wis=0.2592 [net-positive h3/4]
-  damped(phi=0.8,blend=0.5)      mean_wis=0.2594 [net-positive h3/4]
-  damped(phi=0.9,blend=0.5)      mean_wis=0.2596 [net-positive h3/4]
-  momentum(w=0.3,decay=0.5)      mean_wis=0.2611
-  direct(pool_w=0.5)             mean_wis=0.2619
-  momentum(w=0.3,decay=0.8)      mean_wis=0.2619
-  momentum(w=0.6,decay=0.5)      mean_wis=0.2654
-  momentum(w=0.6,decay=0.8)      mean_wis=0.2701
-  direct(pool_w=0.0)             mean_wis=0.2708
-  momentum(w=1.0,decay=0.7)      mean_wis=0.2847
+  window208+damped(0.95,0.3)     mean_wis=0.2801 [net-positive h3/4]
+  window208+damped(0.9,0.3)      mean_wis=0.2801 [net-positive h3/4]
+  window208+damped(0.85,0.3)     mean_wis=0.2803 [net-positive h3/4]
+  window208+damped(0.9,0.2)      mean_wis=0.2805 [net-positive h3/4]
+  window208+damped(0.9,0.4)      mean_wis=0.2805 [net-positive h3/4]
+  window208+direct(pool=0.9)     mean_wis=0.2827 [net-positive h3/4]
+  window208                      mean_wis=0.2831 [net-positive h3/4]
+  window156                      mean_wis=0.2839 [net-positive h3/4]
+  window182                      mean_wis=0.2841 [net-positive h3/4]
+  damped(phi=0.9,blend=0.3)      mean_wis=0.2858 [net-positive h3/4]
+  window130                      mean_wis=0.2862 [net-positive h3/4]
+  damped(phi=0.8,blend=0.5)      mean_wis=0.2866 [net-positive h3/4]
+  damped(phi=0.9,blend=0.5)      mean_wis=0.2867 [net-positive h3/4]
+  direct(pool_w=0.9)             mean_wis=0.2878 [net-positive h3/4]
+  direct(pool_w=0.5)             mean_wis=0.2907
+  momentum(w=0.3,decay=0.5)      mean_wis=0.2923
+  momentum(w=0.3,decay=0.8)      mean_wis=0.2941
+  momentum(w=0.6,decay=0.5)      mean_wis=0.2994
+  direct(pool_w=0.0)             mean_wis=0.2998
+  momentum(w=0.6,decay=0.8)      mean_wis=0.3063
+  momentum(w=1.0,decay=0.7)      mean_wis=0.326
 
 === conclusion ===
-winner: window208+damped(0.9,0.2) mean_wis=0.2524 (vs baseline 0.2601, 2.97%)
-  h3: 0.277 (baseline 0.2873)
-  h4: 0.3021 (baseline 0.3176)
-Submitted (model_id nfidd-longhz) across all five seasons with this configuration.
+winner: window208+damped(0.95,0.3) mean_wis=0.2801 (vs baseline 0.2891, 3.13%)
+  h3: 0.3033 (baseline 0.3154)
+  h4: 0.3274 (baseline 0.345)
+No hub_path given this run -- hub submissions are PAUSED (Sam, see submissions/README.md), so no model-output was written; this is a validation-only honest rescore.

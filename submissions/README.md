@@ -61,10 +61,18 @@ these steps and verifies each before opening the hub PR:
 | season model (per-location climatology) | 0.3004 | — | clean merged baseline (PR #79) |
 | seasoncombo core (pooled shape, no log/t/pool) | 0.3056 | .37 / .76 | **pooled shape is a wash** vs per-location once honest |
 
-Leak-independent levers found (to stack next, leak-free): longer AR window
+Leak-independent levers that WORK (stacked into 0.2801): longer AR window
 (208wk ≈ 4 seasons, helps every horizon) + damped-trend blend (helps h3/h4);
-split-conformal intervals (calibration, no tuning). Time-varying AR, severity
-scaling, within-season adaptation, differencing: all negative results.
+split-conformal + per-location width scaling (calibration).
+
+Negative results (honest, leak-free): time-varying AR (3 mechanisms),
+season-severity scaling, within-season phase/amplitude adaptation,
+differencing, bias correction (overfits season severity), momentum-from-slope,
+and **susceptible-depletion + Rt-renewal** — the last fails hardest at
+season-2 h3/h4 where it was predicted to help. The mechanistic terms are
+underdetermined on 2 seasons as point estimates → flagged as a Bayesian-only
+candidate (`docs/turing-value.md` §1.4): priors + pooled depletion rate +
+latent log-Rt might rescue them or honestly zero them out.
 
 ### What the search has established (answers to the model-structure questions)
 

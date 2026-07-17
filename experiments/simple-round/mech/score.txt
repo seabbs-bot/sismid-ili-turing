@@ -1,0 +1,122 @@
+mechanistic susceptible-depletion + renewal -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 98.4s
+
+round2-stack winner (log+tstudent+pool(w=0.9), 'winner (reproduce)' below): mean_wis=0.2891 sd_wis=0.2987 -- leak-free honest rescore (experiments/simple-round/round2-stack/score.txt's LEAKAGE FIX section)
+
+VERDICT: NEITHER mechanistic candidate beats the plain round2-stack winner net (best mechanistic combo is 'winner+depletion' at mean_wis=0.2941, vs 0.2891 plain). See 'does the mechanism actually capture the peak/turnaround?' below for whether it is at least doing the right thing in the cells it targets, and the Bayesian-benefit section for why a point-estimate analytic version may be leaving real signal on the table.
+
+=== alone, on top of the plain core (fourthroot/gaussian/pool=0) ===
+  core (reproduce)           mean_wis=0.3056 sd_wis=0.3668 cov50=0.371 cov90=0.756
+  core+depletion             mean_wis=0.3038 sd_wis=0.3519 cov50=0.383 cov90=0.777
+  core+renewal               mean_wis=0.3192 sd_wis=0.377 cov50=0.363 cov90=0.743
+  core+depletion+renewal     mean_wis=0.319 sd_wis=0.3684 cov50=0.375 cov90=0.755
+
+=== marginal contribution on top of the core (mean_wis=0.3056) ===
+  core+depletion           delta=0.0017 (0.57%)
+  core+renewal             delta=-0.0137 (-4.47%)
+  core+depletion+renewal   delta=-0.0134 (-4.39%)
+
+=== stacked on the round2-stack winner ===
+  winner (reproduce)                             mean_wis=0.2891 sd_wis=0.2987 cov50=0.521 cov90=0.914
+  winner+depletion                               mean_wis=0.2941 sd_wis=0.2861 cov50=0.555 cov90=0.931
+  winner+renewal                                 mean_wis=0.2966 sd_wis=0.315 cov50=0.528 cov90=0.908
+  winner+depletion+renewal  [full mech stack]    mean_wis=0.3057 sd_wis=0.3098 cov50=0.559 cov90=0.926
+
+=== marginal contribution on top of the winner (mean_wis=0.2891) ===
+  winner+depletion                               delta=-0.005 (-1.73%)
+  winner+renewal                                 delta=-0.0075 (-2.59%)
+  winner+depletion+renewal  [full mech stack]    delta=-0.0166 (-5.74%)
+
+=== depletion_gamma sensitivity (renewal_decay=0.7) ===
+  winner+dep(g=0.5)+renewal      mean_wis=0.3013 sd_wis=0.3089
+  winner+dep(g=1.0)+renewal      mean_wis=0.3057 sd_wis=0.3098
+  winner+dep(g=2.0)+renewal      mean_wis=0.3118 sd_wis=0.3142
+
+=== renewal_decay sensitivity (depletion_gamma=0.5) ===
+  winner+dep+renewal(d=0.5)      mean_wis=0.2957 sd_wis=0.2972
+  winner+dep+renewal(d=0.7)      mean_wis=0.3013 sd_wis=0.3089
+  winner+dep+renewal(d=0.9)      mean_wis=0.3135 sd_wis=0.3361
+
+=== ranked (all combos) ===
+  winner (reproduce)                             mean_wis=0.2891 sd_wis=0.2987
+  winner+depletion                               mean_wis=0.2941 sd_wis=0.2861
+  winner+dep+renewal(d=0.5)                      mean_wis=0.2957 sd_wis=0.2972
+  winner+renewal                                 mean_wis=0.2966 sd_wis=0.315
+  winner+dep(g=0.5)+renewal                      mean_wis=0.3013 sd_wis=0.3089
+  winner+dep+renewal(d=0.7)                      mean_wis=0.3013 sd_wis=0.3089
+  core+depletion                                 mean_wis=0.3038 sd_wis=0.3519
+  core (reproduce)                               mean_wis=0.3056 sd_wis=0.3668
+  winner+depletion+renewal  [full mech stack]    mean_wis=0.3057 sd_wis=0.3098
+  winner+dep(g=1.0)+renewal                      mean_wis=0.3057 sd_wis=0.3098
+  winner+dep(g=2.0)+renewal                      mean_wis=0.3118 sd_wis=0.3142
+  winner+dep+renewal(d=0.9)                      mean_wis=0.3135 sd_wis=0.3361
+  core+depletion+renewal                         mean_wis=0.319 sd_wis=0.3684
+  core+renewal                                   mean_wis=0.3192 sd_wis=0.377
+
+=== winner: winner (reproduce) ===
+mean_wis=0.2891 sd_wis=0.2987 cov50=0.521 cov90=0.914
+vs round2-stack winner (0.2891): 0.0 (0.0%)
+
+winner mean WIS by location:
+  HHS Region 8     0.1594 (n=236)
+  HHS Region 1     0.1863 (n=236)
+  HHS Region 5     0.1933 (n=236)
+  US National      0.1994 (n=236)
+  HHS Region 10    0.2333 (n=236)
+  HHS Region 3     0.2649 (n=236)
+  HHS Region 7     0.3071 (n=236)
+  HHS Region 4     0.3217 (n=236)
+  HHS Region 6     0.3593 (n=236)
+  HHS Region 9     0.364 (n=236)
+  HHS Region 2     0.5917 (n=236)
+
+winner mean WIS by season:
+  season 1: mean_wis=0.2694 sd_wis=0.241 (n=1320)
+  season 2: mean_wis=0.3095 sd_wis=0.3473 (n=1276)
+
+winner mean WIS by horizon:
+  h=1: 0.2245 (n=649)
+  h=2: 0.2716 (n=649)
+  h=3: 0.3154 (n=649)
+  h=4: 0.345 (n=649)
+
+winner (winner (reproduce)) mean WIS by season x horizon (target: h=3,4, season 2 = 2016/17):
+  season 1, h=1: 0.2133 (n=330)
+  season 1, h=2: 0.2536 (n=330)
+  season 1, h=3: 0.2906 (n=330)
+  season 1, h=4: 0.3203 (n=330)
+  season 2, h=1: 0.2361 (n=319)
+  season 2, h=2: 0.2904 (n=319)
+  season 2, h=3: 0.341 (n=319)
+  season 2, h=4: 0.3705 (n=319)
+
+best mechanistic combo (winner+depletion, mean_wis=0.2941) mean WIS by season x horizon, for comparison against the row above:
+  season 1, h=1: 0.2134 (n=330)
+  season 1, h=2: 0.2554 (n=330)
+  season 1, h=3: 0.2956 (n=330)
+  season 1, h=4: 0.3269 (n=330)
+  season 2, h=1: 0.2364 (n=319)
+  season 2, h=2: 0.2939 (n=319)
+  season 2, h=3: 0.35 (n=319)
+  season 2, h=4: 0.3843 (n=319)
+
+=== does the mechanism actually capture the peak/turnaround? ===
+delta = winner mean_wis - best_mech mean_wis per (season, horizon) cell; positive = mechanism helps there, negative = mechanism hurts there:
+  season 1, h=1: delta=-0.0001
+  season 1, h=2: delta=-0.0018
+  season 1, h=3: delta=-0.0049
+  season 1, h=4: delta=-0.0066
+  season 2, h=1: delta=-0.0003
+  season 2, h=2: delta=-0.0036
+  season 2, h=3: delta=-0.0091
+  season 2, h=4: delta=-0.0138
+mean delta, season 2 (2016/17) h=3,4 (the target cells): -0.0114
+mean delta, everywhere else: -0.0029
+The mechanism does NOT help even in the specific cells it was designed for (season 2, h=3-4): both the point estimate of the depletion/momentum terms and their net effect on WIS are working against the hypothesis in this validation data, not just failing to pay for the added variance elsewhere.
+
+=== what this analytic version cannot do, and where a Bayesian (Turing) treatment would genuinely help ===
+1. depletion_gamma and renewal_decay/renewal_gamma are POINT estimates, tuned once by grid search over 3 x 3 values on 2 validation seasons; a Bayesian model could put a prior on each and let the posterior reflect how little season-level information there really is (5 seasons total) to pin these down, rather than reporting one selected value with no uncertainty and risking overfitting the sweep itself to those 2 seasons.
+2. `season_total` (the depletion denominator) is a single historical MEAN per location, so a location with a genuinely unusual season this year gets its damping calibrated against a number that may not apply to it -- a hierarchical model with partial pooling of the per-location depletion rate/season total toward a shared distribution (shrinking small/noisy locations toward the group, letting well-observed ones like US National speak more for themselves) would let each location's damping adapt without needing the ad hoc `min_weeks=40` filter and flat historical average used here.
+3. `renewal_m` (the momentum term) is a fixed number per split, from a 3-point local finite difference; a Turing renewal/Rt-style model could instead treat the local growth rate as a latent, smoothly-evolving state with its OWN uncertainty (e.g. a random walk on log-Rt), which both regularises the momentum estimate against a noisy last few weeks and naturally propagates that uncertainty into the forecast intervals -- something the point estimate used here cannot do (it is exact given the inputs, but the inputs themselves have no error bars).
+4. the two mechanistic terms and the AR(6)/pool/Student-t/backfill terms are all currently combined by hand-picked functional forms (damping multiplicatively, adding the renewal term, applying both to the same cum_frac); a joint Bayesian model could instead estimate how much weight each mechanism should carry (including possibly zero) directly from the joint likelihood across all locations and seasons, rather than via a sequential ablation-and-pick-the-best-cell sweep like this one.

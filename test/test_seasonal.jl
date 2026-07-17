@@ -69,17 +69,20 @@ end
 
 @testset "build_revision_profile: leak-free (future vintages ignored)" begin
     origin = Date(2016, 1, 2)
-    # One location/origin_date pair, revised across several `as_of`
-    # vintages, plus a "settled" vintage that only becomes known AFTER
-    # `origin` -- must not be visible to a split forecasting from `origin`.
+    # One location/origin_date pair, revised across two `as_of` vintages
+    # strictly before `origin`, plus a further "settled" vintage that
+    # only becomes known AT `origin` -- must not be visible to a split
+    # forecasting from `origin`.
     before = [
-        version_row("HHS Region 1", origin - Day(7), origin - Day(7), 3.0),
-        version_row("HHS Region 1", origin - Day(7), origin, 4.0),
+        version_row(
+            "HHS Region 1", origin - Day(14), origin - Day(14), 2.0,
+        ),
+        version_row(
+            "HHS Region 1", origin - Day(14), origin - Day(7), 3.0,
+        ),
     ]
     future_settle = [
-        version_row(
-            "HHS Region 1", origin - Day(7), origin + Day(7), 10.0,
-        ),
+        version_row("HHS Region 1", origin - Day(14), origin, 10.0),
     ]
     v_before = DataFrame(before)
     v_with_future = DataFrame(vcat(before, future_settle))
@@ -93,8 +96,9 @@ end
         min_support = 1, mode = :additive, stat = :median,
     )
     @test p1 == p2
-    # settled (as_of < origin) is the origin-dated vintage (delay 1 week);
-    # the earlier as_of - Day(7) row (delay 0) is corrected toward it.
+    # settled (as_of = origin - 7d, the latest as_of strictly before
+    # `origin`) is delay 1 week from origin_date; the earlier
+    # origin - 14d vintage (delay 0) is corrected toward it.
     @test haskey(p1, ("HHS Region 1", 0))
 end
 
@@ -114,11 +118,14 @@ end
         versions, origin; transform = :fourthroot, max_delay = 8,
         min_support = 1, mode = :multiplicative, stat = :mean,
     )
+    # row 2 (as_of = origin - 7d, the later vintage) is `settled`; row 1
+    # (as_of = origin - 14d, same origin_date, so delay 0 weeks) is
+    # corrected toward it.
     settled = to_scale(4.0, :fourthroot)
     vintage = to_scale(2.0, :fourthroot)
-    @test isapprox(add[("US National", 1)], settled - vintage; atol = 1e-10)
+    @test isapprox(add[("US National", 0)], settled - vintage; atol = 1e-10)
     @test isapprox(
-        mult[("US National", 1)], settled / vintage; atol = 1e-10,
+        mult[("US National", 0)], settled / vintage; atol = 1e-10,
     )
 end
 

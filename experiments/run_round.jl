@@ -105,17 +105,24 @@ end
 # --- candidate normalisation -------------------------------------------------
 
 """
-    _candidate_parts(cand) -> (name, build_model, project)
+    _candidate_parts(cand) -> (name, build_model, project, opts)
 
-Accept a candidate as a `NamedTuple` (`(; name, build_model, project)`) or a
-plain `Tuple`/`Vector` in that order, and return the three parts. Kept
-permissive so candidate lists read naturally either way.
+Accept a candidate as a `NamedTuple` (`(; name, build_model, project, ...)`)
+or a plain `Tuple`/`Vector` in `(name, build_model, project)` order, and
+return the three core parts plus an `opts` `NamedTuple` of any extra
+per-candidate overrides. Recognised overrides: `transform`, `ndraws`,
+`Dmax` (each falls back to the round default when absent). This is how the
+transform-axis check runs one candidate on a different scale from the rest.
+Kept permissive so candidate lists read naturally either way.
 """
 function _candidate_parts(cand)
     if cand isa NamedTuple
-        return (String(cand.name), cand.build_model, cand.project)
+        name = String(cand.name)
+        opts = Base.structdiff(cand,
+            NamedTuple{(:name, :build_model, :project)})
+        return (name, cand.build_model, cand.project, opts)
     end
-    return (String(cand[1]), cand[2], cand[3])
+    return (String(cand[1]), cand[2], cand[3], (;))
 end
 
 # --- diagnostics predict -----------------------------------------------------
@@ -176,25 +183,33 @@ function run_candidate(
     transform::Symbol=:log1p,
     truth::Union{Nothing,DataFrame}=nothing,
     max_splits::Union{Nothing,Int}=nothing,
+    origin_dates::Union{Nothing,AbstractVector}=nothing,
     diag_ndraws::Int=100,
     window_weeks::Int=104,
 )
     truth === nothing && (truth = load_validation_truth())
+    wanted = origin_dates === nothing ? nothing : Set(Date.(origin_dates))
     tables = DataFrame[]
     coverages50 = Float64[]
     coverages90 = Float64[]
     prior_outside = Float64[]
     prior_nonfinite = Float64[]
     acf1s = Float64[]
+    bad_draws = Float64[]
+    origins_used = Date[]
     n_splits = 0
     n_failed_splits = 0
     split_errors = String[]
 
     for season in seasons
         splits = training_splits(season)
+        if wanted !== nothing
+            splits = [s for s in splits if maximum(s.origin_date) in wanted]
+        end
         max_splits !== nothing && (splits = splits[1:min(max_splits, end)])
         for split in splits
             n_splits += 1
+            origin = maximum(split.origin_date)
             try
                 data = build_model_data(split; Dmax=Dmax, transform=transform,
                                         window_weeks=window_weeks)
@@ -203,6 +218,7 @@ function run_candidate(
                 gdraws = generated_draws(model, fit)
                 fq = forecast_quantiles(gdraws, data, name; project=project)
                 push!(tables, fq)
+                push!(bad_draws, _frac_bad_draws(gdraws))
                 bc = bayesian_checks(fit, model, data; ndraws=diag_ndraws,
                                      draws=gdraws, predict=latent_predict)
                 push!(coverages50, bc.posterior.calibration.coverage50)
@@ -215,10 +231,11 @@ function run_candidate(
                     lag1 = acf[acf.lag .== 1, :acf]
                     isempty(lag1) || push!(acf1s, maximum(abs, lag1))
                 end
+                push!(origins_used, origin)
             catch err
                 n_failed_splits += 1
                 push!(split_errors,
-                      "split $(n_splits): " * _short_error(err))
+                      "origin $(origin): " * _short_error(err))
             end
         end
     end
@@ -226,7 +243,8 @@ function run_candidate(
     if isempty(tables)
         msg = isempty(split_errors) ? "no splits produced forecasts" :
               join(split_errors, "; ")
-        return _failed_result(name, msg; n_splits=n_splits,
+        return _failed_result(name, msg; transform=transform,
+                              n_splits=n_splits,
                               n_failed_splits=n_failed_splits)
     end
 
@@ -239,6 +257,7 @@ function run_candidate(
         name=name,
         status=:ok,  # produced forecasts; partial split failures still :ok
         error=isempty(split_errors) ? nothing : join(split_errors, "; "),
+        transform=transform,
         mean_wis=nat.mean_wis[1],
         sd_wis=nat.sd_wis[1],
         log_mean_wis=lg.mean_wis[1],
@@ -248,12 +267,29 @@ function run_candidate(
         prior_frac_outside=_meanor(prior_outside),
         prior_frac_nonfinite=_meanor(prior_nonfinite),
         max_abs_acf1=_meanor(acf1s),
+        frac_bad_draws=_meanor(bad_draws),
         n_tasks=Int(nat.n_tasks[1]),
         n_splits=n_splits,
         n_failed_splits=n_failed_splits,
+        origin_dates_used=sort(origins_used),
         forecast_df=forecast_df,
         truth=truth,
     )
+end
+
+"""
+    _frac_bad_draws(gdraws)
+
+Fraction of generated draws whose `latent` path contains a non-finite value
+-- a light Pathfinder convergence/health signal (a diverged variational fit
+tends to spill `Inf`/`NaN` into the latent series). Returns `0.0` for a clean
+fit, `NaN` if no `latent` field is present.
+"""
+function _frac_bad_draws(gdraws)
+    isempty(gdraws) && return NaN
+    hasproperty(gdraws[1], :latent) || return NaN
+    bad = count(d -> any(!isfinite, _get(d, :latent)), gdraws)
+    return bad / length(gdraws)
 end
 
 _meanor(v) = isempty(v) ? NaN : mean(filter(isfinite, v))

@@ -50,7 +50,7 @@ time × location matrix form. See docs/contracts.md.
 """
 struct ModelData
     Y::Matrix{Union{Missing,Float64}}  # (T×L) vintage obs on modelling scale
-    delay::Matrix{Int}                 # (T×L) reporting delay weeks; -1 missing
+    delay::Matrix{Int}                 # (T×L) reporting delay wks; -1 missing
     woy::Vector{Int}                   # (T) week-of-season index 1..W
     season::Vector{Int}                # (T) season index 1..S
     dates::Vector{Date}                # (T) reference dates, ascending

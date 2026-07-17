@@ -58,17 +58,17 @@ in a large share of seasons.
 
 | location | mean peak `woy` | SD peak `woy` | min-max `woy` | mean peak wILI | SD peak wILI |
 |---|---|---|---|---|---|
-| HHS Region 1 | 28.5 | 5.2 | 16-34 | 3.36 | - |
-| HHS Region 2 | 27.1 | 7.6 | 16-45 | 4.63 | - |
-| HHS Region 3 | 28.9 | 7.9 | 15-48 | 5.67 | - |
-| HHS Region 4 | 25.8 | 6.7 | 8-34 | 4.89 | - |
-| HHS Region 5 | 28.3 | 5.9 | 14-34 | 4.61 | - |
-| HHS Region 6 | 26.9 | 5.8 | 13-34 | 8.42 | - |
-| HHS Region 7 | 28.0 | 5.7 | 14-34 | 5.02 | - |
-| HHS Region 8 | 26.5 | 7.5 | 11-34 | 3.54 | - |
-| HHS Region 9 | 27.5 | 6.5 | 13-41 | 5.15 | - |
-| HHS Region 10 | 28.8 | 6.4 | 13-39 | 4.67 | - |
-| US National | 27.2 | 5.7 | 14-34 | 4.75 | - |
+| HHS Region 1 | 28.5 | 5.2 | 16-34 | 3.36 | 2.12 |
+| HHS Region 2 | 27.1 | 7.6 | 16-45 | 4.63 | 1.84 |
+| HHS Region 3 | 28.9 | 7.9 | 15-48 | 5.67 | 2.35 |
+| HHS Region 4 | 25.8 | 6.7 | 8-34 | 4.89 | 1.54 |
+| HHS Region 5 | 28.3 | 5.9 | 14-34 | 4.61 | 1.90 |
+| HHS Region 6 | 26.9 | 5.8 | 13-34 | 8.42 | 2.53 |
+| HHS Region 7 | 28.0 | 5.7 | 14-34 | 5.02 | 2.51 |
+| HHS Region 8 | 26.5 | 7.5 | 11-34 | 3.54 | 2.09 |
+| HHS Region 9 | 27.5 | 6.5 | 13-41 | 5.15 | 1.25 |
+| HHS Region 10 | 28.8 | 6.4 | 13-39 | 4.67 | 2.18 |
+| US National | 27.2 | 5.7 | 14-34 | 4.75 | 1.47 |
 
 Per-location peak-timing SD ranges 5.2-7.9 weeks (Region 1 tightest,
 Region 3 loosest), all comparably or more variable than the national

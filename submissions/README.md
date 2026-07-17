@@ -17,7 +17,8 @@ archived in `submissions/<model_id>/`.
 |---|---|---|---|---|---|---|---|
 | 0 | `nfidd-ar6` | Plain AR(6) per location, fourth-root | 0.368 / 0.106 | 5 seasons | [#62](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/62) + [#70](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/70) | pass | merged |
 | 1 | `nfidd-ar6bf` | AR(6) + non-monotonic backfill correction | 0.359 / 0.103 | val (test ext. in flight) | [#67](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/67) | pass | merged |
-| 2 | _held — improving_ | seasonality + backfill (+ pooling / differencing) | tbd | 5 seasons | tbd | tbd | holding for a seasonal+backfill model that improves on 0.352 |
+| 2 | `nfidd-seasarbf` | Pooled seasonal climatology + AR(6) + backfill | **0.2781** / 0.334 | 5 seasons | opening | tbd | submitting (−22.5% vs ar6bf) |
+| 3+ | _round-2 candidates_ | log+t-intervals stack / seasonal drift / partial pooling / severity / seasonal ensemble | pending (aim < 0.278) | 5 seasons | tbd | tbd | iterating |
 | — | `seabbs_bot-round1` (Turing) | Joint partial-pooling Turing model (base-tight) | tbd | 5 seasons | tbd | tbd | scoring |
 
 Closed (not shipped): #71 (Fourier overwrote the baseline and scored worse,

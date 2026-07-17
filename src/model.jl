@@ -105,7 +105,7 @@ so a forecaster can back-transform without having to also thread
 from AR(1) level to a first-order difference (see [`ar_or_diff`](@ref)).
 
 Returns a `NamedTuple` of the modelled quantities (`latent`,
-`seasonal`, `residual`, `mu_w`, `delta`, `season_eff`, `phi`,
+`seasonal`, `residual`, `mu0`, `mu_w`, `delta`, `season_eff`, `phi`,
 `sigma_ar`, `r`, `r_pop`, `sigma_obs`, `transform`) so a forecaster can
 project `latent` forward (continue the AR/difference recursion with
 `phi`/`sigma_ar`, and the seasonal curve via `mu_w`/`season_eff`) and
@@ -172,7 +172,7 @@ apply `r`/`r_pop` to nowcast the most recent, partially-observed weeks.
     end
 
     return (;
-        latent, seasonal, residual, mu_w, delta, season_eff,
+        latent, seasonal, residual, mu0, mu_w, delta, season_eff,
         phi, sigma_ar, r, r_pop, sigma_obs, transform,
     )
 end

@@ -16,3 +16,6 @@ experiments/**/output/
 reports/**/figures/
 *.log
 .DS_Store
+
+# Local scratch hub clone for validation runs (not source)
+/scratch-hub/

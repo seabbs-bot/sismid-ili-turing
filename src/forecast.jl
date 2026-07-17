@@ -7,7 +7,7 @@
 
 using DataFrames
 using Dates
-using Statistics: quantile
+using Statistics: quantile, mean
 
 """
     default_project(draw, data, horizons)
@@ -61,6 +61,84 @@ end
 # Read a field from a draw that may be a NamedTuple or a Dict{Symbol}.
 _field(draw, key::Symbol) =
     draw isa AbstractDict ? draw[key] : getproperty(draw, key)
+
+"""
+    base_project(draw, data, horizons; difference=false)
+
+`project` function bridging one `base_model` posterior draw to the
+`(L × maximum(horizons))` latent-scale forecast matrix that
+[`forecast_quantiles`](@ref) consumes.
+
+`draw` is a raw sampled-site draw as returned by `posterior_draws(fit)`
+(src/inference.jl): it carries `base_model`'s `~` sites, not its derived
+return quantities. This function therefore recomputes the derived
+quantities from the raw sites, mirroring src/model.jl exactly, so there
+is no dependence on generated-quantities extraction. Required fields:
+`mu0`, `sigma_season_pop`, `mu_w_raw` (length `W`), `sigma_season_loc`,
+`delta_raw` (`W × L`), `sigma_season_time`, `season_eff_raw` (length
+`S`), `phi_pop_mean`, `phi_pop_sd`, `phi_raw` (`L`), `mu_log_sigma_ar`,
+`tau_log_sigma_ar`, `z_sigma_ar` (`L`), `eps_raw` (`T × L`).
+
+For each horizon `h = 1:maximum(horizons)`:
+
+- **Seasonality** for future week-of-season `w = mod1(data.woy[end] + h,
+  data.W)` is rebuilt as `mu0 + mu_w[w] + delta[w, l] + season_eff[s]`,
+  with `s = data.season[end]` (the current season's level shift held for
+  the short within-season horizons).
+- **Residual** is seeded from the last training-week residual (the tail
+  of [`ar_or_diff`](@ref) rebuilt from `eps_raw`) and forward-simulated
+  with fresh innovations: `resid_h = phi * resid_{h-1} + sigma_ar *
+  randn()` for the default AR(1), or `resid_h = resid_{h-1} + sigma_ar *
+  randn()` when `difference` is `true`. Fresh (not decayed) innovations
+  keep predictive intervals calibrated; each call is a fresh
+  posterior-predictive realisation for the draw.
+
+`difference` must match how `base_model` was fit (its default is
+`false`); [`forecast_quantiles`](@ref) calls `project` with three
+positional arguments, so the default is used in the front-runner path.
+No backfill revision is applied to future weeks (revision -> 0), matching
+the observed-vs-forecast distinction in docs/contracts.md.
+"""
+function base_project(draw, data::ModelData, horizons;
+                      difference::Bool=false)
+    L = data.L
+    W = data.W
+    H = maximum(horizons)
+
+    # --- Seasonality (mirror src/model.jl transforms exactly) ---
+    mu0 = _field(draw, :mu0)
+    mu_w_unc = cumsum(_field(draw, :mu_w_raw)) .* _field(draw,
+        :sigma_season_pop)
+    mu_w = mu_w_unc .- mean(mu_w_unc)                     # (W,)
+    delta = _field(draw, :delta_raw) .* _field(draw, :sigma_season_loc)
+    season_eff = _field(draw, :season_eff_raw) .*
+        _field(draw, :sigma_season_time)                 # (S,)
+    seff = season_eff[data.season[end]]
+
+    # --- AR(1) residual dynamics (mirror src/model.jl) ---
+    phi = tanh.(_field(draw, :phi_pop_mean) .+
+                _field(draw, :phi_pop_sd) .* _field(draw, :phi_raw))
+    sigma_ar = exp.(_field(draw, :mu_log_sigma_ar) .+
+                    _field(draw, :tau_log_sigma_ar) .*
+                    _field(draw, :z_sigma_ar))
+    eps_raw = _field(draw, :eps_raw)                     # (T × L)
+    resid = Float64[
+        ar_or_diff(view(eps_raw, :, l), sigma_ar[l], phi[l], difference)[end]
+        for l in 1:L
+    ]
+
+    latent = Matrix{Float64}(undef, L, H)
+    for h in 1:H
+        w = mod1(data.woy[end] + h, W)
+        for l in 1:L
+            innov = sigma_ar[l] * randn()
+            resid[l] = difference ? resid[l] + innov :
+                       phi[l] * resid[l] + innov
+            latent[l, h] = mu0 + mu_w[w] + delta[w, l] + seff + resid[l]
+        end
+    end
+    return latent
+end
 
 """
     _draws(fit)

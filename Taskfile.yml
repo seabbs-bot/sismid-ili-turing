@@ -1,0 +1,52 @@
+version: '3'
+
+# Developer entry points for sismid-ili-turing. All Julia, no R.
+# Run `task --list` to see this summary, `task <name>` to run one.
+#
+# setup/smoke/test run against the root project (Turing, Mooncake, etc).
+# validate runs against its own small environment in scripts/validate/,
+# so checking a submission never needs to load Turing/Mooncake/Pathfinder.
+
+tasks:
+  setup:
+    desc: Resolve and instantiate the Julia project environment.
+    cmds:
+      - julia --project=. scripts/setup_julia.jl
+
+  smoke:
+    desc: Quick check that packages load, data reads, and Turing samples.
+    cmds:
+      - julia --project=. scripts/smoke_test.jl
+
+  export-data:
+    desc: >
+      Export the course .rda data objects (from
+      ~/code/nfidd/sismid-forecasting/data) to CSV in data/
+      (scripts/export_data.jl).
+    cmds:
+      - julia --project=. scripts/export_data.jl
+
+  test:
+    desc: >
+      Run the Julia test suite (test/runtests.jl). Aggregates every
+      test_<module>.jl file that exists; skips modules not yet built.
+    cmds:
+      - julia --project=. test/runtests.jl
+
+  validate:
+    desc: >
+      Check a model's submission files and metadata against the hub's
+      format rules (scripts/validate_submission.jl), reading
+      hub-config/*.json from the local hub clone so the rules never
+      drift. This is a local pre-flight, not the authoritative check —
+      that runs as hubValidations in the hub's PR CI.
+      Vars: MODEL_ID (required), HUB_PATH (optional, defaults to
+      ~/code/external/sismid-ili-forecasting-sandbox), FILE_PATH
+      (optional, a single file relative to model-output/).
+    env:
+      MODEL_ID: '{{.MODEL_ID}}'
+      HUB_PATH: '{{.HUB_PATH}}'
+      FILE_PATH: '{{.FILE_PATH}}'
+    cmds:
+      - julia --project=scripts/validate -e 'using Pkg; Pkg.instantiate()'
+      - julia --project=scripts/validate scripts/validate_submission.jl

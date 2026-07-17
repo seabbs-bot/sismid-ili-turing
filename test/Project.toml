@@ -1,0 +1,16 @@
+# Isolated QA environment. Kept deliberately separate from the root
+# Project.toml (Turing, Mooncake, ...): EpiAwarePackageTools.jl and
+# JuliaFormatter are QA tooling, not modelling dependencies, and every
+# implement-and-review loop re-instantiates the root project, so keeping
+# QA tooling out of it avoids bloating that resolve. test/qa_runner.jl is
+# invoked in a subprocess with `--project=test` for exactly this reason;
+# see test/test_qa.jl.
+[deps]
+EpiAwarePackageTools = "7aaea248-0d11-4a0d-a7dc-86da30abb951"
+JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
+
+# EpiAwarePackageTools ("Ecosystem test utilities", EpiAware org) is not
+# registered; matches the same add-by-URL approach as ScoringRules in the
+# root Project.toml.
+[sources.EpiAwarePackageTools]
+url = "https://github.com/EpiAware/EpiAwarePackageTools.jl"

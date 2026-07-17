@@ -50,6 +50,11 @@ the national aggregate by one or more weeks; the coupling across
 locations in this data is contemporaneous, not propagating
 geographically week over week.
 
+![Cross-location correlation heatmaps: levels (left, high
+throughout, shared seasonality) vs week-to-week changes (right,
+moderate and uneven once
+differenced)](figures/04_cross_location_correlation.png)
+
 ## Implications for the model
 
 - The moderate, uneven, but genuinely non-zero correlation of

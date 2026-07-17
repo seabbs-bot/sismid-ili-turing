@@ -154,6 +154,10 @@ So peak timing is a mix of a shared national driver plus real
 location-specific idiosyncrasy, especially for Region 2 (0.37) and
 Region 1/Region 9 (both ~0.61).
 
+![Seasonal wILI curves by location, 2004/05-2016/17 seasons overlaid
+(sequential colour = chronological order); dots mark each season's
+peak week](figures/03_seasonal_curves.png)
+
 ## Implications for the model
 
 - A random-effect seasonal curve indexed by `woy`, allowed to shift

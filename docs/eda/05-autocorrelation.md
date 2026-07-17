@@ -60,6 +60,13 @@ order/coefficient structure (shrinking high-order coefficients
 toward zero rather than fixing one hard cutoff) fits the spread
 better than picking one fixed low order for everyone.
 
+![ACF and PACF of the deseasonalised residual, and ACF of its first
+difference, for four example locations spanning the AR-order range
+(US National and Region 8: order 4; Region 2: order 8; Region 7:
+order 10); PACF cuts off near lag 1 but ACF decays gradually, and
+differencing induces a negative lag-1 ACF for most
+locations](figures/05_autocorrelation.png)
+
 ## AR vs differencing
 
 The first difference of the deseasonalised residual has a

@@ -166,6 +166,11 @@ dispersion/scale parameter on top of a shared fourth-root mean
 transform) that is more principled than searching for one perfect
 global power.
 
+![Taylor's power law fit (left) and flatness comparison across
+identity/sqrt/fourth-root/log transforms (right); fourth-root
+flattens the mean-variance relationship better than
+log](figures/01_transform_variance_stabilisation.png)
+
 ## Transform comparison: skewness (secondary evidence)
 
 Skewness of the raw series and three candidate transforms

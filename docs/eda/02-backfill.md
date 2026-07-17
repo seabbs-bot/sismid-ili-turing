@@ -52,6 +52,11 @@ revision is negligible, so a reporting-delay dimension `Dmax` around
 10-15 covers the great majority of the revision mass, with a longer
 tail of small, occasional adjustments beyond that.
 
+![Revision size (left) and direction (right) by reporting delay,
+pooled and for three example locations (Region 2 upward-biased,
+Region 9 downward-biased, US National as a
+baseline)](figures/02_backfill_revisions.png)
+
 ## Non-monotonic direction
 
 Revisions are **not** a one-directional correction.

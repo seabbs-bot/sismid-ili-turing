@@ -1,0 +1,95 @@
+locallevel: local-level/random-walk residual on the round-1 winner's seasonal + backfill construction -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 203.2s
+
+round-1 winner reference (seasoncombo core, pooled-seasonal + AR(6) + backfill): 0.2781
+sanity rerun here: mean_wis=0.2781 sd_wis=0.3341
+
+=== rw (driftless random walk) ===
+Gaussian/scale=1 sanity point: mean_wis=0.2844 sd_wis=0.3166
+noise x scale recalibration (best 8 shown):
+  mode=student_t scale=1.2 -> mean_wis=0.2821 sd_wis=0.2952
+  mode=gaussian scale=1.2 -> mean_wis=0.2821 sd_wis=0.2927
+  mode=student_t scale=1.4 -> mean_wis=0.2839 sd_wis=0.2764
+  mode=gaussian scale=1.0 -> mean_wis=0.2844 sd_wis=0.3166
+  mode=gaussian scale=1.4 -> mean_wis=0.2844 sd_wis=0.2735
+  mode=student_t scale=1.0 -> mean_wis=0.2847 sd_wis=0.3182
+  mode=empirical scale=1.2 -> mean_wis=0.2885 sd_wis=0.3049
+  mode=student_t scale=1.6 -> mean_wis=0.2889 sd_wis=0.2618
+best: mode=student_t scale=1.2 mean_wis=0.2821 sd_wis=0.2952
+
+=== damped (random walk decaying toward zero) ===
+phi sweep (Gaussian, scale=1):
+  phi=0.9 -> mean_wis=0.2641 sd_wis=0.3184
+  phi=0.85 -> mean_wis=0.2665 sd_wis=0.3327
+  phi=0.95 -> mean_wis=0.2694 sd_wis=0.3109
+  phi=0.8 -> mean_wis=0.2745 sd_wis=0.3498
+  phi=0.99 -> mean_wis=0.2805 sd_wis=0.314
+  phi=1.0 -> mean_wis=0.2844 sd_wis=0.3166
+  phi=0.7 -> mean_wis=0.2997 sd_wis=0.384
+  phi=0.6 -> mean_wis=0.3278 sd_wis=0.413
+  phi=0.5 -> mean_wis=0.3528 sd_wis=0.4345
+best phi: 0.9 mean_wis=0.2641
+noise x scale recalibration at phi=0.9 (best 8 shown):
+  mode=gaussian scale=1.2 -> mean_wis=0.2611 sd_wis=0.2948
+  mode=student_t scale=1.2 -> mean_wis=0.2615 sd_wis=0.298
+  mode=student_t scale=1.4 -> mean_wis=0.2621 sd_wis=0.2787
+  mode=gaussian scale=1.4 -> mean_wis=0.2621 sd_wis=0.2749
+  mode=empirical scale=1.2 -> mean_wis=0.2631 sd_wis=0.3022
+  mode=empirical scale=1.4 -> mean_wis=0.2637 sd_wis=0.2836
+  mode=gaussian scale=1.0 -> mean_wis=0.2641 sd_wis=0.3184
+  mode=student_t scale=1.0 -> mean_wis=0.2648 sd_wis=0.3209
+best: mode=gaussian scale=1.2 mean_wis=0.2611 sd_wis=0.2948
+
+=== locallinear (Theil-Sen robust local trend) ===
+window sweep (Gaussian, scale=1):
+  window=16 -> mean_wis=0.3344 sd_wis=0.3766
+  window=12 -> mean_wis=0.3478 sd_wis=0.4102
+  window=10 -> mean_wis=0.3565 sd_wis=0.442
+  window=8 -> mean_wis=0.3655 sd_wis=0.4707
+  window=6 -> mean_wis=0.3921 sd_wis=0.5135
+  window=4 -> mean_wis=0.4658 sd_wis=0.6545
+best window: 16 mean_wis=0.3344
+noise x scale recalibration at window=16 (best 8 shown):
+  mode=student_t scale=1.4 -> mean_wis=0.3247 sd_wis=0.3315
+  mode=gaussian scale=1.4 -> mean_wis=0.325 sd_wis=0.3302
+  mode=student_t scale=1.6 -> mean_wis=0.326 sd_wis=0.3151
+  mode=gaussian scale=1.6 -> mean_wis=0.3269 sd_wis=0.3136
+  mode=gaussian scale=1.2 -> mean_wis=0.3271 sd_wis=0.351
+  mode=student_t scale=1.2 -> mean_wis=0.3271 sd_wis=0.352
+  mode=empirical scale=1.4 -> mean_wis=0.3288 sd_wis=0.346
+  mode=empirical scale=1.2 -> mean_wis=0.3301 sd_wis=0.3655
+best: mode=student_t scale=1.4 mean_wis=0.3247 sd_wis=0.3315
+
+=== overall comparison (best of each form) ===
+damped          mean_wis=0.2611   sd_wis=0.2948   phi=0.9 mode=gaussian scale=1.2
+ar6-reference   mean_wis=0.2781   sd_wis=0.3341   round-1 winner, AR(6) residual
+rw              mean_wis=0.2821   sd_wis=0.2952   mode=student_t scale=1.2
+locallinear     mean_wis=0.3247   sd_wis=0.3315   window=16 mode=student_t scale=1.4
+
+=== best local-level form: damped ===
+mean_wis=0.2611 sd_wis=0.2948 (phi=0.9 mode=gaussian scale=1.2)
+vs AR(6)-residual round-1 winner (0.2781): 0.017 (6.1%)
+
+region/time breakdown, damped vs AR(6)-residual reference (same validation tasks)
+
+  by location (mean WIS)
+    HHS Region 8     ar6=0.1628  damped=0.1567
+    HHS Region 1     ar6=0.2054  damped=0.1769
+    US National      ar6=0.1944  damped=0.1798
+    HHS Region 5     ar6=0.2096  damped=0.1908
+    HHS Region 10    ar6=0.2248  damped=0.2338
+    HHS Region 9     ar6=0.2701  damped=0.2411
+    HHS Region 3     ar6=0.2852  damped=0.2671
+    HHS Region 7     ar6=0.3132  damped=0.2882
+    HHS Region 4     ar6=0.3096  damped=0.2995
+    HHS Region 6     ar6=0.3575  damped=0.3727
+    HHS Region 2     ar6=0.5265  damped=0.4657
+
+  by horizon (mean WIS)
+    h=1: ar6=0.2031 -> damped=0.1972
+    h=2: ar6=0.2536 -> damped=0.2423
+    h=3: ar6=0.3104 -> damped=0.2875
+    h=4: ar6=0.3453 -> damped=0.3176
+
+CONCLUSION: the local-level residual model (damped) TIES/BEATS the AR(6) residual on validation WIS once the pooled seasonal term + backfill correction are held fixed.

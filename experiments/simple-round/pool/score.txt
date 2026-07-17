@@ -1,0 +1,19 @@
+analytic partial pooling -- validation seasons (1, 2), AR(6), fourthroot scale
+
+ranked schemes:
+  fullpool-w0.5: mean_wis=0.3643 sd_wis=0.4595
+  fullpool-w0.75: mean_wis=0.3648 sd_wis=0.4554
+  national-w0.25: mean_wis=0.3653 sd_wis=0.4627
+  fullpool-w0.25: mean_wis=0.3655 sd_wis=0.4646
+  national-w0.5: mean_wis=0.3658 sd_wis=0.4563
+  national-w0.1: mean_wis=0.3668 sd_wis=0.4675
+  fullpool-w1.0: mean_wis=0.367 sd_wis=0.4525
+  fullpool-w0.1: mean_wis=0.367 sd_wis=0.4682
+  none: mean_wis=0.3684 sd_wis=0.4708
+  js: mean_wis=0.3709 sd_wis=0.4776
+  national-w0.75: mean_wis=0.3718 sd_wis=0.4539
+  national-w1.0: mean_wis=0.3852 sd_wis=0.4603
+
+best: fullpool-w0.5 mean_wis=0.3643 sd_wis=0.4595
+unpooled (none) mean_wis=0.3684
+baselines: nfidd-ar6 = 0.368; seabbs_bot-ar6bf = 0.359

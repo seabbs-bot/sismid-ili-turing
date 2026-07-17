@@ -1,0 +1,90 @@
+seasonal + partial pooling sweep -- simple-round, round 2
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 123.3s
+
+reference points:
+  seasoncombo combo 1 (core: season+AR6+backfill)   = 0.2781 (sd 0.3341)
+  seasoncombo combo 5 (amp shrink=1.0 + backfill)   = 0.2748 (sd 0.3198)
+  pool/ fullpool-w0.5 (plain AR, no season)         = 0.3643 vs unpooled 0.3684 (1.11% better)
+  local core sanity rerun (this script)             = 0.2781 (sd 0.3341)
+
+=== knob 1: amplitude pooling (shrink toward the pooled amp=1 mean) ===
+  shrink=1.0 -> mean_wis=0.2748 sd_wis=0.3198 vs core: 1.19%
+  shrink=0.75 -> mean_wis=0.2753 sd_wis=0.3237 vs core: 1.02%
+  shrink=0.5 -> mean_wis=0.276 sd_wis=0.3276 vs core: 0.74%
+  shrink=0.25 -> mean_wis=0.277 sd_wis=0.3311 vs core: 0.4%
+  shrink=0.0 -> mean_wis=0.2781 sd_wis=0.3341 vs core: 0.0%
+best: shrink=1.0 mean_wis=0.2748
+
+=== knob 2: AR(6) coefficient pooling (fullpool anchor on deseasonalized residual) ===
+  weight=1.0 -> mean_wis=0.2685 sd_wis=0.3249 vs core: 3.44%
+  weight=0.75 -> mean_wis=0.2691 sd_wis=0.3256 vs core: 3.22%
+  weight=0.5 -> mean_wis=0.2709 sd_wis=0.3273 vs core: 2.58%
+  weight=0.25 -> mean_wis=0.2739 sd_wis=0.33 vs core: 1.51%
+  weight=0.1 -> mean_wis=0.2763 sd_wis=0.3323 vs core: 0.66%
+  weight=0.0 -> mean_wis=0.2781 sd_wis=0.3341 vs core: 0.0%
+best: weight=1.0 mean_wis=0.2685
+
+=== knob 3: backfill profile pooling (blend toward delay-only, cross-location profile) ===
+  weight=0.0 -> mean_wis=0.2781 sd_wis=0.3341 vs core: 0.0%
+  weight=0.25 -> mean_wis=0.2789 sd_wis=0.3333 vs core: -0.31%
+  weight=0.5 -> mean_wis=0.2807 sd_wis=0.3337 vs core: -0.94%
+  weight=0.75 -> mean_wis=0.2834 sd_wis=0.3353 vs core: -1.89%
+  weight=1.0 -> mean_wis=0.2869 sd_wis=0.3382 vs core: -3.17%
+best: weight=0.0 mean_wis=0.2781
+
+=== combined-naive (each knob's own best, stacked) ===
+amp shrink=1.0, AR weight=1.0, bf weight=0.0
+mean_wis=0.2702 sd_wis=0.3195
+WORSE than AR-pooling alone -- amp shrink and AR weight interact, the naive stack does not add.
+
+=== joint grid: amp shrink x AR weight (bf weight fixed at 0, its own best) ===
+  shrink=0.0 weight=1.0 -> mean_wis=0.2685 sd_wis=0.3249
+  shrink=0.25 weight=1.0 -> mean_wis=0.2689 sd_wis=0.3237
+  shrink=0.25 weight=0.75 -> mean_wis=0.2691 sd_wis=0.3239
+  shrink=0.0 weight=0.75 -> mean_wis=0.2691 sd_wis=0.3256
+  shrink=0.5 weight=0.75 -> mean_wis=0.2692 sd_wis=0.3219
+  shrink=0.5 weight=1.0 -> mean_wis=0.2693 sd_wis=0.3224
+  shrink=0.75 weight=0.75 -> mean_wis=0.2694 sd_wis=0.3197
+  shrink=1.0 weight=0.75 -> mean_wis=0.2696 sd_wis=0.3176
+  shrink=0.75 weight=1.0 -> mean_wis=0.2697 sd_wis=0.321
+  shrink=0.75 weight=0.5 -> mean_wis=0.2701 sd_wis=0.3197
+  shrink=1.0 weight=0.5 -> mean_wis=0.2701 sd_wis=0.3169
+  shrink=1.0 weight=1.0 -> mean_wis=0.2702 sd_wis=0.3195
+  shrink=0.5 weight=0.5 -> mean_wis=0.2703 sd_wis=0.3225
+  shrink=0.25 weight=0.5 -> mean_wis=0.2705 sd_wis=0.3251
+  shrink=0.0 weight=0.5 -> mean_wis=0.2709 sd_wis=0.3273
+  shrink=1.0 weight=0.25 -> mean_wis=0.2718 sd_wis=0.3176
+  shrink=0.75 weight=0.25 -> mean_wis=0.2721 sd_wis=0.3209
+  shrink=0.5 weight=0.25 -> mean_wis=0.2725 sd_wis=0.3243
+  shrink=0.25 weight=0.25 -> mean_wis=0.2732 sd_wis=0.3274
+  shrink=1.0 weight=0.1 -> mean_wis=0.2734 sd_wis=0.3187
+  shrink=0.75 weight=0.1 -> mean_wis=0.2738 sd_wis=0.3224
+  shrink=0.0 weight=0.25 -> mean_wis=0.2739 sd_wis=0.33
+  shrink=0.5 weight=0.1 -> mean_wis=0.2745 sd_wis=0.3261
+  shrink=1.0 weight=0.0 -> mean_wis=0.2748 sd_wis=0.3198
+  shrink=0.75 weight=0.0 -> mean_wis=0.2753 sd_wis=0.3237
+  shrink=0.25 weight=0.1 -> mean_wis=0.2753 sd_wis=0.3295
+  shrink=0.5 weight=0.0 -> mean_wis=0.276 sd_wis=0.3276
+  shrink=0.0 weight=0.1 -> mean_wis=0.2763 sd_wis=0.3323
+  shrink=0.25 weight=0.0 -> mean_wis=0.277 sd_wis=0.3311
+  shrink=0.0 weight=0.0 -> mean_wis=0.2781 sd_wis=0.3341
+best: shrink=0.0 weight=1.0 mean_wis=0.2685 sd_wis=0.3249
+
+=== overall comparison ===
+ar-only          mean_wis=0.2685   sd_wis=0.3249
+joint-grid-best  mean_wis=0.2685   sd_wis=0.3249
+combined-naive   mean_wis=0.2702   sd_wis=0.3195
+amp-only         mean_wis=0.2748   sd_wis=0.3198
+core             mean_wis=0.2781   sd_wis=0.3341
+bf-only          mean_wis=0.2781   sd_wis=0.3341
+
+=== winner: ar-only ===
+mean_wis=0.2685 sd_wis=0.3249
+vs core reference (0.2781): 0.0096 (3.44%)
+
+=== interpretation: does partial pooling help more or less once seasonality is in? ===
+plain AR (pool/, no season): fullpool-w0.5 beat unpooled by 1.11%.
+seasonal core + AR pooling: best weight=1.0 beat unpooled-AR core by 3.44%.
+amplitude pooling: best shrink=1.0 (LESS pooling) beat full-pooling core by 1.19%.
+backfill pooling: best weight=0.0 beat per-location-only core by 0.0%.

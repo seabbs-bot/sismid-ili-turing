@@ -5,11 +5,25 @@
 # an empirical location x delay revision profile estimated from
 # `data/flu_data_hhs_versions.csv` (docs/eda/02-backfill.md).
 #
+# Submitted as `seabbs_bot-ar6bf` (team_abbr "seabbs_bot": the hub's
+# model-metadata schema forbids a hyphen in team_abbr,
+# `^[a-zA-Z0-9_+]+$`, underscore only).
+#
 # Everything else is identical to nfidd-ar6
 # (submissions/nfidd-ar6/generate_forecasts.jl): independent AR(6) per
 # location, fit by OLS on the fourth-root-transformed vintage series, no
 # hierarchy, no seasonality term. This isolates the effect of the
-# backfill correction in the nfidd-ar6-vs-nfidd-ar6bf WIS comparison.
+# backfill correction in the nfidd-ar6-vs-seabbs_bot-ar6bf WIS
+# comparison.
+#
+# Coverage: generates forecasts for every origin date in ALL FIVE
+# seasons (1-2 validation, 3-5 held-out test), since a per-origin
+# forecast is a legitimate vintage fit -- it only ever uses data
+# available up to that split's own forecast origin, whichever season
+# it falls in, and never trains on or tunes against the test seasons.
+# The backfill-vs-baseline WIS comparison used to select this design
+# is still run on the VALIDATION seasons only (docs/contracts.md
+# experimental integrity); see the README for that comparison.
 #
 # Backfill correction
 # --------------------
@@ -54,7 +68,7 @@ include(joinpath(PKG_DIR, "src", "core.jl"))
 include(joinpath(PKG_DIR, "src", "data.jl"))
 include(joinpath(PKG_DIR, "src", "hubio.jl"))
 
-const MODEL_ID = "nfidd-ar6bf"
+const MODEL_ID = "seabbs_bot-ar6bf"
 const TRANSFORM = :fourthroot
 const AR_ORDER = 6
 const NPATHS = 1000
@@ -210,7 +224,10 @@ seasons. `versions` (full, unfiltered) is passed to `build_model_data`
 so the true `as_of`-based delay is used wherever available; this only
 ever looks at `as_of <= forecast_origin` (enforced inside
 `build_model_data`), so it never leaks future revisions into a split's
-own delay index.
+own delay index. Seasons in `TEST_SEASONS` are fetched with
+`allow_test_season=true`: each split is still just a per-origin
+vintage fit capped at its own forecast origin, not training on the
+test season.
 """
 function build_forecast_table(seasons, profile, versions_full)
     rng = MersenneTwister(SEED)
@@ -220,7 +237,9 @@ function build_forecast_table(seasons, profile, versions_full)
         output_type=String[], output_type_id=Float64[], value=Float64[],
     )
     for season in seasons
-        splits = training_splits(season)
+        splits = training_splits(
+            season; allow_test_season=(season in TEST_SEASONS),
+        )
         for split in splits
             data = build_model_data(
                 split; Dmax=DMAX, transform=TRANSFORM, window_weeks=104,
@@ -268,7 +287,9 @@ function main()
     println("revision profile: $(length(profile)) (location, delay) " *
             "entries with >= $(MIN_SUPPORT) observations")
 
-    forecast = build_forecast_table((1, 2), profile, versions_full)
+    forecast = build_forecast_table(
+        (1, 2, 3, 4, 5), profile, versions_full,
+    )
     dt = round(time() - t0; digits=2)
     n_origins = length(unique(forecast.origin_date))
     println("built $(nrow(forecast)) rows across $(n_origins) origin " *
@@ -278,7 +299,7 @@ function main()
         write_submission(forecast, hub_path)
         write_metadata(
             MODEL_ID, hub_path;
-            team_abbr="nfidd", model_abbr="ar6bf", designated=true,
+            team_abbr="seabbs_bot", model_abbr="ar6bf", designated=true,
         )
         println("wrote submission + metadata to $(hub_path)")
     end

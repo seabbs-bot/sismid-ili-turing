@@ -1,0 +1,59 @@
+smoother -- simple-round, CLOSE-VARIANT family
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 72.8s
+
+reference (this variant is a CLOSE variant of):
+  seasoncombo core (pooled-season + AR(6) + backfill) = 0.2781
+  seabbs_bot-ar6bf (AR(6) + backfill, no season)      = 0.359
+  nfidd-ar6 (plain AR(6), no season)                 = 0.368
+
+swap under test: same pooled seasonal shape + same backfill correction as seasoncombo core, but the AR(6) residual model is replaced by a NON-AR kernel-weighted analogue/nearest-neighbour bootstrap forecaster (see docstrings above).
+
+sweep: seg_len x bw_mult x jitter_frac (3x3x2 = 18 runs)
+  seg_len=6 bw_mult=0.75 jitter_frac=0.3 -> mean_wis=0.285 sd_wis=0.3294
+  seg_len=8 bw_mult=0.75 jitter_frac=0.3 -> mean_wis=0.2852 sd_wis=0.328
+  seg_len=4 bw_mult=0.75 jitter_frac=0.3 -> mean_wis=0.2855 sd_wis=0.3349
+  seg_len=4 bw_mult=1.0 jitter_frac=0.3 -> mean_wis=0.2863 sd_wis=0.3327
+  seg_len=6 bw_mult=1.0 jitter_frac=0.3 -> mean_wis=0.2866 sd_wis=0.3301
+  seg_len=8 bw_mult=1.0 jitter_frac=0.3 -> mean_wis=0.2871 sd_wis=0.3289
+  seg_len=6 bw_mult=0.75 jitter_frac=0.0 -> mean_wis=0.2876 sd_wis=0.3351
+  seg_len=4 bw_mult=1.5 jitter_frac=0.3 -> mean_wis=0.2881 sd_wis=0.3319
+  seg_len=8 bw_mult=0.75 jitter_frac=0.0 -> mean_wis=0.2882 sd_wis=0.3334
+  seg_len=6 bw_mult=1.5 jitter_frac=0.3 -> mean_wis=0.2884 sd_wis=0.3301
+  seg_len=4 bw_mult=0.75 jitter_frac=0.0 -> mean_wis=0.2888 sd_wis=0.3413
+  seg_len=6 bw_mult=1.0 jitter_frac=0.0 -> mean_wis=0.2893 sd_wis=0.3348
+  seg_len=8 bw_mult=1.0 jitter_frac=0.0 -> mean_wis=0.2893 sd_wis=0.3339
+  seg_len=8 bw_mult=1.5 jitter_frac=0.3 -> mean_wis=0.2894 sd_wis=0.3297
+  seg_len=4 bw_mult=1.0 jitter_frac=0.0 -> mean_wis=0.2895 sd_wis=0.3389
+  seg_len=4 bw_mult=1.5 jitter_frac=0.0 -> mean_wis=0.2904 sd_wis=0.3376
+  seg_len=6 bw_mult=1.5 jitter_frac=0.0 -> mean_wis=0.2913 sd_wis=0.3363
+  seg_len=8 bw_mult=1.5 jitter_frac=0.0 -> mean_wis=0.292 sd_wis=0.3362
+
+=== best: seg_len=6 bw_mult=0.75 jitter_frac=0.3 ===
+mean_wis=0.285 sd_wis=0.3294 n_tasks=2596
+vs seasoncombo core reference (0.2781): -0.0069 (-2.5%)
+
+-- breakdown by location (best config, mean WIS) --
+HHS Region 2  0.508
+HHS Region 6  0.3838
+HHS Region 7  0.3164
+HHS Region 4  0.3158
+HHS Region 9  0.3091
+HHS Region 3  0.2947
+HHS Region 10  0.2572
+HHS Region 1  0.1985
+HHS Region 5  0.1985
+US National  0.1927
+HHS Region 8  0.1608
+
+-- breakdown by horizon (best config, mean WIS) --
+h=1: 0.209
+h=2: 0.2593
+h=3: 0.3157
+h=4: 0.3562
+
+-- breakdown by validation season (best config, mean WIS) --
+season 2015: 0.2436
+season 2016: 0.328
+
+CONCLUSION: the analogue/kernel residual model does NOT beat the AR(6)-residual core reference here -- reported anyway as a structurally DIVERSE (non-AR, non-parametric) forecaster, potentially useful for ensembling even if not individually the best.

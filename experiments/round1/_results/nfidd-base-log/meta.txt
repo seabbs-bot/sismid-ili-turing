@@ -1,0 +1,3 @@
+transform=log
+ndraws=150
+Dmax=12

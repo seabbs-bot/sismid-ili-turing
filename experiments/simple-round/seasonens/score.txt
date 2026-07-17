@@ -1,0 +1,66 @@
+ensemble of seasonal+backfill models -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 47.7s
+
+members (each copied from its own source experiment, see file header for full derivation):
+  core       -- seasoncombo combo 1: pooled additive season + AR(6) + additive backfill (w=8)
+  ampbf      -- seasoncombo bonus combo 5 (its own OVERALL WINNER): core + per-location amplitude scale (shrink=1.0)
+  amp        -- seasoncombo combo 4: amplitude-scaled season + AR(6), NO backfill
+  full       -- full/generate.jl order=6: pooled Fourier season + multiplicative backfill (w=6) + fullpool AR(6) (weight 0.5)
+  season     -- season/generate.jl: per-location climatology regressor + AR(6) + additive backfill (w=8)
+  seasonpool -- seasonpool/generate.jl: pooled Fourier season + AR(6) + additive backfill (w=8)
+
+combination methods:
+  ens-mean         -- simple average across the 6 members
+  ens-median       -- pointwise median across the 6 members
+  ens-wis-weighted -- weights = 1/mean_wis per member, normalised (tuned on validation only)
+
+reference points:
+  round-1 winner (this iteration's brief)      = 0.2781 (seasoncombo-core)
+  seasoncombo's OWN best single model          = 0.2748 (ampbf, i.e. amp+backfill)
+  simp-ensemble (4 PLAIN members, mean/median/weighted) = 0.290 (worse than any seasonal member here)
+
+ranking (sorted by mean_wis, ascending):
+model               mean_wis    sd_wis      n_tasks
+ampbf               0.2749      0.3193      2596
+ens-top2-mean       0.2758      0.3255      2596
+ens-top3-weighted   0.2763      0.3206      2596
+ens-top3-mean       0.2763      0.3206      2596
+core                0.2785      0.3345      2596
+ens-wis-weighted    0.2803      0.3421      2596
+ens-mean            0.2807      0.3433      2596
+amp                 0.2831      0.3201      2596
+ens-median          0.2832      0.3459      2596
+full                0.3004      0.3837      2596
+season              0.3009      0.3889      2596
+seasonpool          0.3051      0.3873      2596
+
+weights (1/mean_wis, normalised): Dict("core" => 0.1735422632728098, "ampbf" => 0.17581173944682646, "amp" => 0.17074857357127032, "full" => 0.16087208094149244, "seasonpool" => 0.15841012665685764, "season" => 0.16061521611074328)
+
+=== best: ampbf ===
+mean_wis=0.2749 sd_wis=0.3193 n_tasks=2596
+vs round-1 winner, seasoncombo-core (0.2781): 0.0032 (1.15%)
+vs seasoncombo's own best single model, ampbf (0.2748): -0.0001 (-0.04%)
+
+-- breakdown by location (best) --
+HHS Region 8    mean_wis=0.1616 n=236
+US National     mean_wis=0.1958 n=236
+HHS Region 1    mean_wis=0.2044 n=236
+HHS Region 5    mean_wis=0.2099 n=236
+HHS Region 10   mean_wis=0.2259 n=236
+HHS Region 9    mean_wis=0.2506 n=236
+HHS Region 3    mean_wis=0.2845 n=236
+HHS Region 7    mean_wis=0.296 n=236
+HHS Region 4    mean_wis=0.3055 n=236
+HHS Region 6    mean_wis=0.3523 n=236
+HHS Region 2    mean_wis=0.5374 n=236
+
+-- breakdown by horizon (best) --
+h=1: mean_wis=0.2012 n=649
+h=2: mean_wis=0.2508 n=649
+h=3: mean_wis=0.3063 n=649
+h=4: mean_wis=0.3414 n=649
+
+-- breakdown by season (best) --
+season 2015: mean_wis=0.2408 n=1320
+season 2016: mean_wis=0.3102 n=1276

@@ -1,0 +1,87 @@
+simple-round / features (FEATURE-BASED RIDGE REGRESSION family)
+Scored on VALIDATION seasons only (1, 2), natural scale, per docs/contracts.md experimental integrity.
+runtime so far: 92.3s
+
+Baselines quoted from other families' own reproductions of the same validation splits:
+  ar6-baseline (nfidd-ar6, no season/backfill): 0.3684
+  climatology-backfill (per-location, experiments/simple-round/season): 0.3004
+  seasoncombo-core (pooled-season + AR6 + backfill, ROUND-1 WINNER, the target to beat): 0.2781
+
+Design: per-horizon ridge regression, DIRECT (not iterated) h-step-ahead fit -- see generate.jl header for the full feature list and rationale.
+
+Sweep: lambda (ridge penalty) x scale (residual-inflation multiplier on the Normal predictive quantiles), sorted by mean_wis:
+lambda    scale   mean_wis    sd_wis
+10.0      1.4     0.2917      0.344
+10.0      1.6     0.2923      0.3254
+3.0       1.6     0.2938      0.3301
+3.0       1.4     0.2939      0.3485
+10.0      1.2     0.2944      0.3652
+30.0      1.4     0.295       0.3539
+10.0      1.8     0.2954      0.3095
+3.0       1.8     0.2962      0.3141
+30.0      1.6     0.2963      0.3344
+30.0      1.2     0.2969      0.3758
+3.0       1.2     0.2973      0.3694
+1.0       1.6     0.2977      0.3397
+1.0       1.4     0.2983      0.3582
+1.0       1.8     0.2996      0.3235
+30.0      1.8     0.3001      0.3175
+10.0      2.0     0.3006      0.296
+3.0       2.0     0.3007      0.3007
+10.0      1.0     0.3012      0.3886
+1.0       1.2     0.3022      0.3792
+30.0      1.0     0.3029      0.3999
+1.0       2.0     0.3036      0.3097
+3.0       1.0     0.3048      0.3925
+30.0      2.0     0.3061      0.303
+1.0       1.0     0.3101      0.4022
+100.0     1.4     0.3177      0.3967
+100.0     1.2     0.3186      0.4218
+100.0     1.6     0.3201      0.3737
+100.0     1.0     0.3237      0.449
+100.0     1.8     0.3251      0.3533
+100.0     2.0     0.3324      0.3355
+
+=== best variant ===
+lambda=10.0 scale=1.4
+mean_wis=0.2917 sd_wis=0.344 n_tasks=2596
+vs seasoncombo-core (0.2781): -0.0136 (-4.89%)
+
+-- breakdown by location (best variant) --
+HHS Region 1	mean_wis=0.1495	n=236
+HHS Region 8	mean_wis=0.1733	n=236
+HHS Region 5	mean_wis=0.2131	n=236
+US National	mean_wis=0.2291	n=236
+HHS Region 10	mean_wis=0.2353	n=236
+HHS Region 9	mean_wis=0.2445	n=236
+HHS Region 3	mean_wis=0.3075	n=236
+HHS Region 4	mean_wis=0.3313	n=236
+HHS Region 7	mean_wis=0.3532	n=236
+HHS Region 6	mean_wis=0.4478	n=236
+HHS Region 2	mean_wis=0.5239	n=236
+
+-- breakdown by horizon (best variant) --
+h=1	mean_wis=0.2049	n=649
+h=2	mean_wis=0.2719	n=649
+h=3	mean_wis=0.3266	n=649
+h=4	mean_wis=0.3634	n=649
+
+-- breakdown by season (best variant) --
+season 2015	mean_wis=0.2408	n=1320
+season 2016	mean_wis=0.3443	n=1276
+
+-- feature importance (best variant): mean |standardised ridge coefficient| across every (location, horizon, split) fit, so magnitudes are directly comparable across features --
+clim_target       0.0334
+national_level    0.0325
+woy_sin           0.0295
+lag1              0.025
+trend             0.0216
+lag2              0.0137
+lag4              0.0136
+lag3              0.0108
+woy_cos           0.0098
+lag6              0.009
+lag5              0.0069
+amp_so_far        0.0069
+
+total time: 92.4s

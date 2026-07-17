@@ -1,0 +1,157 @@
+TIME-VARYING AR (analytic) -- simple-model wide round
+======================================================
+
+Family assigned: per-location AR(6), fit analytically (no Turing), with
+coefficients that adapt over time -- exponentially-discounted weighted
+OLS (sweep the discount factor) and rolling-window OLS (sweep the
+window length), plus the backfill correction if it helps.
+
+Baseline to beat: AR(6) + backfill (seabbs_bot-ar6bf), mean WIS 0.359
+on validation seasons (1, 2) only. All numbers below are scored the
+same way: src/scoring.jl score_forecasts/wis_summary (natural scale,
+the operational target) against target-data/oracle-output.csv, seasons
+1-2 only (2596 tasks: 59 origin dates x 11 locations x 4 horizons).
+
+RESULT: no time-varying scheme beats the static fit. Best is the
+static fit + backfill correction, which TIES the known baseline
+(0.359) rather than improving on it. See "why" below.
+
+Sweep 1: discounted weighted OLS AR(6), no backfill
+----------------------------------------------------
+discount  mean_wis  sd_wis
+1.000     0.3684    0.4708   <- static OLS control (matches nfidd-ar6
+                                exactly: weight discount^0=1 for every
+                                row)
+0.995     0.3738    0.4878
+0.990     0.3804    0.5086
+0.985     0.3881    0.5330
+0.980     0.3970    0.5606
+0.970     0.4177    0.6233
+0.950     0.4689    0.7628
+0.920     0.5569    0.9696
+0.900     0.6146    1.1049
+0.850     0.7348    1.4869
+
+Monotonically worse as discount drops. No interior optimum -- the
+best point in the grid is the boundary (no discounting at all).
+
+Sweep 2: rolling-window OLS AR(6), no backfill
+------------------------------------------------
+window   mean_wis   sd_wis
+104      0.3684     0.4708   <- full window control (== static OLS,
+                                since build_model_data already caps
+                                history at 104 weeks)
+78       0.3696     0.4830
+52       0.4503     0.6465
+39       0.6049     0.9522
+30       0.6715     1.1257
+24       0.7317     1.2973
+20       0.9377     2.9404
+16       3865.2     191793   <- numerically unstable: window=16 gives
+                                only 10 fit rows for a 7-parameter
+                                AR(6), X'X is near-singular, coefficients
+                                explode
+
+Same monotonic pattern, worse than the discount sweep at matched
+"effective window" (e.g. window=52 is worse than discount=0.98, which
+has a similar effective sample size) -- a hard truncation throws away
+information a smooth discount partially retains, but even the smooth
+version never wins.
+
+Order-effect follow-up: is this just "AR(6) has 7 parameters and needs
+all 104 weeks to be identified"?
+------------------------------------------------------------------------
+Repeated both sweeps at AR(2) (3 parameters, needs far less data) to
+check whether the monotonic "more discounting/truncation = worse"
+pattern is a parameter-count artifact of AR(6) specifically.
+
+AR(2) discount sweep:
+discount  mean_wis  sd_wis
+1.000     0.3876    0.4622
+0.990     0.3954    0.4848
+0.970     0.4219    0.5806
+0.950     0.4574    0.7098
+0.900     0.5439    1.0678
+0.850     0.6265    1.7857
+0.800     0.7941    5.8272
+0.700     3.0593    98.9352
+
+AR(2) window sweep:
+window  mean_wis  sd_wis
+104     0.3876    0.4622
+52      0.4095    0.5061
+26      0.5526    0.8775
+16      0.5974    1.0789
+10      1.1120    12.6474
+
+Same shape, same direction, at a much smaller parameter count. So this
+is not an AR(6)-specific degrees-of-freedom artifact: for this
+per-location wILI series (fourthroot scale, 104-week/2-season window),
+discounting or truncating the fit window never helps, at either AR
+order tried. Reading: the 104-week window already spans exactly two
+full seasonal cycles, so a static fit over it is already using
+"the recent regime" in the only sense that is estimable (a full
+season) -- discounting/truncating below that just removes information
+(fewer effective observations, noisier coefficients) without gaining
+anything, since there is no shorter within-window regime shift for it
+to adapt to.
+
+Backfill correction on top of the best (=static) fit
+-------------------------------------------------------
+discount  mean_wis (+backfill)  sd_wis
+1.000     0.3590                0.4521   <- best overall
+0.995     0.3632                0.4653
+0.990     0.3685                0.4822
+0.980     0.3823                0.5263
+
+Backfill correction is unambiguously worth adding (0.3684 -> 0.3590,
+~2.5% mean-WIS improvement, and lower SD too -- a stable improvement,
+not a few outlier tasks), and, consistent with the "no time variation"
+finding above, adding any discount on top of it only makes things
+worse again, monotonically, same as without backfill.
+
+This is EXACTLY submissions/seabbs_bot-ar6bf's model and score (mean
+0.359, SD 0.452, verified to 4 decimal places) -- expected, since
+discount=1.0 in fit_ar_discounted reduces algebraically to the plain
+OLS fit_ar used there, so this is a reproduction, not a coincidence.
+
+Region / horizon / season breakdown for the winner
+------------------------------------------------------
+Because the winning discount=1.0+backfill configuration is numerically
+identical to seabbs_bot-ar6bf, its full task-level breakdown is already
+published in submissions/seabbs_bot-ar6bf/README.md rather than
+recomputed here (avoids re-running an identical fit a third time on an
+already-contended shared box). Headline points from that breakdown,
+carried over verbatim since the model and truth are the same:
+  - By location: the backfill gain is concentrated in HHS Region 2
+    (-0.057 mean per-task WIS) and Region 9 (-0.026); most other
+    locations improve by a few thousandths, Region 4 regresses
+    slightly (+0.0011).
+  - By season: most of the gain is in 2015/16 (-0.017), 2016/17 is
+    close to flat (-0.001).
+  - By horizon: small, fairly even improvement across h=1..4 (-0.014
+    down to -0.005).
+  - Task level: 53% of individual tasks improve; net positive but not
+    universal.
+None of this breakdown is about time-variation (there is none in the
+winning model) -- it is the backfill effect, reported here because the
+brief asked for region/time detail on whatever ends up best.
+
+Bottom line
+-----------
+- Best in this family: static (undiscounted) AR(6) + backfill,
+  mean_wis = 0.3590, sd_wis = 0.4521 -- TIES the 0.359 baseline (it
+  IS that baseline), does not beat it.
+- Every genuine time-varying scheme tried (discount < 1, window < 104)
+  scored strictly worse, monotonically, at both AR(6) and AR(2). This
+  is a negative result for the assigned family on this dataset/window
+  choice, not a tuning failure: there was no interior optimum to find,
+  the sweep grids bracket the static case on both sides in spirit
+  (window sweep approaches the static case from below; discount=1.0 is
+  the exact static case), and the pattern replicates at a different AR
+  order.
+- experiments/simple-round/tvar/generate.jl implements the general,
+  reusable discounted-OLS machinery (DISCOUNT is a top-level constant,
+  currently set to the tuned value 1.0) plus the backfill correction,
+  and reproduces mean_wis=0.359044, sd_wis=0.452123 on validation
+  seasons (1, 2) when run and scored (verified numerically above).

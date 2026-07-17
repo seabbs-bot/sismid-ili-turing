@@ -21,7 +21,7 @@ Ranked by mean WIS, then WIS SD (overfitting guard). Natural-scale WIS is the se
 
 | Rank | Candidate | Mean WIS | WIS SD | Log-scale WIS | Cov50 | Cov90 | Status | Notes |
 |---|---|---|---|---|---|---|---|---|
-| - | _none scored_ | | | | | | | |
+| 1 | nfidd-base | 1.0601 | 0.6747 | 0.3610 | 0.0393 | 0.0935 | ok |  |
 
 ## Bayesian workflow
 
@@ -29,6 +29,7 @@ Per-candidate prior/posterior predictive and residual checks (mean over scored s
 
 | Candidate | Prior % outside | Prior % non-finite | Post cov50 | Post cov90 | Max |resid ACF(1)| |
 |---|---|---|---|---|---|
+| nfidd-base | 0.6969 | 0.0000 | 0.0393 | 0.0935 | 0.9733 |
 
 ## Log-scale divergence check
 
@@ -36,9 +37,7 @@ Natural-scale and log-scale WIS agree on the candidate ordering. No divergence.
 
 ## Candidates needing a fix
 
-We fix complex or failing models rather than abandon them for being complex.
-
-- **nfidd-base** (`:failed`): split 1: FieldError: type NamedTuple has no field `mu_w_raw`, available fields: `latent`, `seasonal`, `residual`, `mu0`, `mu_w`, `delta`, `season_eff`, `phi`, `sigma_ar`, `r`, `r_pop`, `sigma_obs`, `transform`
+None: every candidate produced forecasts within time.
 
 ## Decision
 

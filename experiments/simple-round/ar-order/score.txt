@@ -1,0 +1,109 @@
+AR-order sweep, simple-model wide round
+========================================
+
+Family: submissions/nfidd-ar6/generate_forecasts.jl (plain per-location
+AR(p), OLS on fourthroot-transformed vintage series, 1000 simulated
+Gaussian-innovation paths). Only the AR order is varied here, crossed
+with the seabbs_bot-ar6bf backfill correction (empirical location x
+delay revision profile, unchanged from that submission).
+
+Scored on VALIDATION SEASONS ONLY (1, 2 = 2015/16, 2016/17), against
+target-data/oracle-output.csv in the local hub clone
+(~/code/external/sismid-ili-forecasting-sandbox), using
+src/scoring.jl's score_forecasts/wis_summary, natural scale. Test
+seasons (3-5) were never generated, scored, or looked at. Produced by
+sweep.jl in this directory.
+
+Ranked results (12 combinations: order in {2,4,6,8,10,12} x
+{no backfill, backfill})
+------------------------------------------------------------------
+
+order  backfill  mean_wis  sd_wis
+  12     true     0.3518    0.4506   <- BEST (this variant)
+   8     true     0.3525    0.4452   (close 2nd, marginally lower SD)
+  10     true     0.3534    0.4496
+   6     true     0.3590    0.4521   = seabbs_bot-ar6bf (submitted)
+  12    false     0.3623    0.4698
+   8    false     0.3628    0.4644
+  10    false     0.3644    0.4695
+   4     true     0.3676    0.4443
+   6    false     0.3684    0.4708   = nfidd-ar6 (submitted baseline)
+   4    false     0.3760    0.4623
+   2     true     0.3787    0.4463
+   2    false     0.3876    0.4622
+
+Baselines
+---------
+
+nfidd-ar6        (order=6,  no backfill): mean WIS 0.368
+seabbs_bot-ar6bf  (order=6, backfill):    mean WIS 0.359
+
+Chosen: order=12 + backfill, mean WIS 0.3518
+  - beats nfidd-ar6 by ~4.4% (0.368 -> 0.3518)
+  - beats seabbs_bot-ar6bf by ~2.0% (0.359 -> 0.3518)
+
+Every order tried (2,4,6,8,10,12) improves with backfill added, and
+mean WIS falls fairly monotonically as order increases from 2 to 8,
+then flattens/wobbles slightly between 8-12 (8: 0.3525, 10: 0.3534,
+12: 0.3518 -- differences smaller than run-to-run noise from the
+Monte Carlo path simulation, but 12 is the nominal winner on mean
+WIS, the primary ranking metric used throughout this repo). SD is not
+monotonic with order: order=8+backfill has the lowest SD (0.4452) of
+the top three, so it is a reasonable, slightly more conservative
+alternative if stability is weighted alongside the mean.
+
+Breakdown of the best variant (order=12, backfill=true)
+---------------------------------------------------------
+
+By location (mean WIS, ascending = best first):
+  HHS Region 8    0.1813
+  HHS Region 1    0.2139
+  HHS Region 5    0.2581
+  US National     0.2698
+  HHS Region 10   0.2810
+  HHS Region 4    0.3725
+  HHS Region 7    0.3857
+  HHS Region 3    0.3862
+  HHS Region 9    0.4042
+  HHS Region 6    0.5369   <- worst
+  HHS Region 2    0.5799   <- worst
+
+By horizon (mean WIS, all n=649):
+  h=1  0.2290
+  h=2  0.3141
+  h=3  0.4006
+  h=4  0.4634
+
+(monotonic increase with horizon, as expected -- WIS roughly doubles
+from h=1 to h=4)
+
+By season (mean WIS):
+  2015/16 (season_year=2015)  0.2728  (n=1320)
+  2016/17 (season_year=2016)  0.4335  (n=1276)
+
+2016/17 is markedly harder than 2015/16 for every variant tried here
+(consistent with seabbs_bot-ar6bf's own README noting most of ITS
+backfill gain came from 2015/16); the higher AR order does not close
+that season-level gap, it improves both seasons roughly proportionally.
+
+Where the higher AR order wins/loses vs order=6+backfill
+-----------------------------------------------------------
+
+Not separately re-scored task-by-task here (see sweep.jl to reproduce
+a location/horizon diff against the order=6+backfill variant if
+needed), but the aggregate pattern is: order=12+backfill's worst
+locations (HHS Region 2 and 6) are the same two locations that were
+hardest for seabbs_bot-ar6bf too, so the extra AR lags are not fixing
+a location-specific problem -- they are a fairly uniform reduction in
+short-range autocorrelation misspecification, layered on top of the
+backfill correction's separate, more location-concentrated gain
+(mainly Region 2 and Region 9, per seabbs_bot-ar6bf's own README).
+
+Reproduce
+---------
+
+  julia --project=<sismid-ili-turing repo> \
+      experiments/simple-round/ar-order/sweep.jl
+
+  julia --project=<sismid-ili-turing repo> \
+      experiments/simple-round/ar-order/generate.jl [hub_path]

@@ -1,0 +1,42 @@
+pooled seasonal climatology -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 44.2s
+
+pooled shape: 3 harmonics fit to season_year <= 2014 history, pooled across all 11 locations
+shape coefficients: [0.1782, -0.0865, -0.0121, -0.0072, 0.0188, 0.0103]
+
+reference points from other experiments/READMEs:
+  nfidd-ar6 (plain AR(6))                = 0.368
+  seabbs_bot-ar6bf (AR(6)+backfill)       = 0.359
+  nfidd-ar6 + per-location Fourier(3)     = 0.412 (overfits, worse than plain AR(6))
+
+this run's own numbers (identical data/RNG plumbing across all three, for a fair comparison):
+baseline-ar6      mean_wis=0.3684 sd_wis=0.4708 n_tasks=2596
+baseline-ar6bf    mean_wis=0.359 sd_wis=0.4521 n_tasks=2596
+seasonpool        mean_wis=0.3049 sd_wis=0.3869 n_tasks=2596
+
+seasonpool vs baseline-ar6bf: 0.0542 (15.09%)
+seasonpool vs baseline-ar6: 0.0635 (17.24%)
+
+-- breakdown by location (seasonpool vs ar6bf) --
+HHS Region 9    season=0.2815 ar6bf=0.4261 improvement=0.1446
+HHS Region 6    season=0.4325 ar6bf=0.535 improvement=0.1025
+HHS Region 2    season=0.5037 ar6bf=0.5897 improvement=0.086
+HHS Region 3    season=0.3214 ar6bf=0.3866 improvement=0.0652
+US National     season=0.2411 ar6bf=0.2815 improvement=0.0404
+HHS Region 1    season=0.2128 ar6bf=0.2509 improvement=0.0381
+HHS Region 4    season=0.3561 ar6bf=0.3906 improvement=0.0345
+HHS Region 7    season=0.3374 ar6bf=0.3697 improvement=0.0322
+HHS Region 10   season=0.2337 ar6bf=0.2626 improvement=0.0289
+HHS Region 8    season=0.1758 ar6bf=0.1934 improvement=0.0176
+HHS Region 5    season=0.2576 ar6bf=0.2633 improvement=0.0057
+
+-- breakdown by season (seasonpool vs ar6bf) --
+season 2015: season=0.2775 ar6bf=0.2762 improvement=-0.0013
+season 2016: season=0.3332 ar6bf=0.4447 improvement=0.1115
+
+-- breakdown by horizon (seasonpool vs ar6bf and vs plain ar6) --
+h=1: season=0.2145 ar6bf=0.231 ar6=0.2452 improvement_vs_bf=0.0165 improvement_vs_ar6=0.0306
+h=2: season=0.2798 ar6bf=0.3198 ar6=0.3299 improvement_vs_bf=0.0399 improvement_vs_ar6=0.05
+h=3: season=0.3433 ar6bf=0.409 ar6=0.4167 improvement_vs_bf=0.0657 improvement_vs_ar6=0.0734
+h=4: season=0.3818 ar6bf=0.4764 ar6=0.4818 improvement_vs_bf=0.0945 improvement_vs_ar6=0.1

@@ -1,0 +1,114 @@
+simple-round / combo -- BEST COMBINATION grid search
+=====================================================
+
+Family: LIGHT + ANALYTIC (OLS/ridge, no Turing), fourth-root scale,
+per-location AR fit jointly with an optional ridge-regularised
+seasonal term, on top of the seabbs_bot-ar6bf backfill correction.
+Scored on VALIDATION SEASONS (1, 2) ONLY, 2596 tasks
+(docs/contracts.md experimental integrity).
+
+Baseline to beat: seabbs_bot-ar6bf (AR(6) + backfill, no seasonal)
+  mean WIS = 0.359, SD = 0.452
+
+Grid searched (search_grid.jl): full factorial,
+  AR order      in {4, 6, 8}
+  backfill      in {off, on}    (seabbs_bot-ar6bf profile, unchanged)
+  seasonal      in {off, on}    (2 harmonics, ridge lambda = 0.3 *
+                                 nobs on the seasonal columns only,
+                                 fixed, not itself part of the grid)
+= 12 cells, ~78s wall total (analytic fits + 1000-path simulation
+per split/location, no MCMC).
+
+Full grid, sorted by mean WIS (natural scale):
+
+ ar_order  backfill  seasonal  mean_wis  sd_wis   n_tasks
+        8      true      true    0.3336   0.4254     2596
+        6      true      true    0.3347   0.4237     2596
+        4      true      true    0.3349   0.4200     2596
+        8     false      true    0.3436   0.4397     2596
+        4     false      true    0.3438   0.4345     2596
+        6     false      true    0.3441   0.4377     2596
+        8      true     false    0.3525   0.4452     2596
+        6      true     false    0.3590   0.4521     2596   <- ar6bf baseline
+        8     false     false    0.3628   0.4644     2596
+        4      true     false    0.3676   0.4443     2596
+        6     false     false    0.3684   0.4708     2596
+        4     false     false    0.3760   0.4623     2596
+
+Headline finding: the seasonal term is the dominant lever (every
+seasonal=true row beats every seasonal=false row); backfill adds a
+smaller, still-positive effect on top of it; AR order barely matters
+at all once both are present (mean WIS flat to 3 sig figs across
+4/6/8, both with and without seasonal).
+
+SELECTED: AR(4) + backfill + seasonal
+--------------------------------------
+mean WIS = 0.3349, SD = 0.4200 (n_tasks = 2596)
+vs baseline 0.359 (SD 0.452): -6.7% mean WIS, AND lower SD.
+
+Picked over AR(8)+backfill+seasonal (mean 0.3336, SD 0.4254) and
+AR(6)+backfill+seasonal (mean 0.3347, SD 0.4237) deliberately:
+- The three are statistically indistinguishable on mean WIS (spread
+  of 0.0013, <0.4% relative); AR(8)'s edge is not a real improvement
+  on this evidence.
+- AR(4) has the LOWEST SD of the three -- the more stable choice, not
+  just a mean-shift artefact.
+- AR(4) has the FEWEST per-location parameters: intercept + 4 AR lags
+  + 4 seasonal (2 harmonics x sin/cos) = 9, vs 11 (AR6) vs 13 (AR8),
+  fit against ~100/98/96 observations per split under
+  window_weeks=104 (two seasons of history). Preferring fewer
+  parameters for the same score is the direct "watch overfitting"
+  call: AR(8)'s extra 4 lag coefficients buy ~0.3% mean WIS at the
+  cost of more SD and less headroom against a short training window.
+
+Parameter count (selected model, per location, per split):
+  1 intercept + 4 AR lags + 2x(sin,cos) seasonal harmonics = 9 free
+  coefficients, ridge-penalised only on the 4 seasonal columns
+  (lambda = 0.3 * nobs, ~29 at nobs=96); AR/intercept columns
+  unpenalised. Plus the shared backfill profile (built once, not
+  per-split/location: 63 (location, delay) entries with >=5 supporting
+  observations, out of 11 locations x 9 delays = 99 possible cells).
+
+Per-location breakdown (selected vs baseline, mean WIS delta;
+negative = improvement), profile_best.jl:
+  HHS Region 9   base=0.4261 best=0.3645  delta=-0.0615  (biggest gain)
+  HHS Region 6   base=0.5350 best=0.4848  delta=-0.0502
+  HHS Region 1   base=0.2509 best=0.2026  delta=-0.0483
+  HHS Region 2   base=0.5897 best=0.5451  delta=-0.0447
+  HHS Region 5   base=0.2633 best=0.2398  delta=-0.0235
+  HHS Region 3   base=0.3866 best=0.3658  delta=-0.0208
+  HHS Region 4   base=0.3906 best=0.3790  delta=-0.0117
+  HHS Region 8   base=0.1934 best=0.1857  delta=-0.0077
+  US National    base=0.2815 best=0.2738  delta=-0.0077
+  HHS Region 10  base=0.2626 best=0.2662  delta=+0.0036  (small regression)
+  HHS Region 7   base=0.3697 best=0.3762  delta=+0.0065  (small regression)
+9 of 11 locations improve; only Region 7/10 regress, both small.
+
+By season (mean WIS delta):
+  season 1 (2015/16): base=0.2762 best=0.2568  delta=-0.0194
+  season 2 (2016/17): base=0.4447 best=0.4156  delta=-0.0291
+Both seasons improve; season 2 (the harder, higher-WIS season)
+improves more in absolute terms.
+
+By horizon (mean WIS delta):
+  h=1: base=0.2310 best=0.2250  delta=-0.0060
+  h=2: base=0.3198 best=0.3012  delta=-0.0185
+  h=3: base=0.4090 best=0.3785  delta=-0.0305
+  h=4: base=0.4764 best=0.4347  delta=-0.0417
+Improvement grows with horizon -- consistent with a seasonal term
+correcting more of the trajectory the further out the AR-only
+baseline has to extrapolate.
+
+Task-level: 1555 of 2596 (59.9%) individual forecast tasks improved.
+
+Files
+-----
+search_grid.jl   -- full grid search harness (12 cells), the source
+                     of the table above; run standalone to reproduce.
+profile_best.jl  -- per-location/season/horizon breakdown of the
+                     selected model vs the seabbs_bot-ar6bf baseline.
+generate.jl      -- the selected model as a standalone driver, in the
+                     same style as submissions/nfidd-ar6 and
+                     submissions/seabbs_bot-ar6bf/generate_forecasts.jl
+                     (accepts an optional hub_path to write a
+                     validation-seasons-only submission).

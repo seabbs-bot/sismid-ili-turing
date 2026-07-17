@@ -1,0 +1,71 @@
+seasonal drift/adaptation sweep -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 81.4s
+
+reference: seasoncombo core (fixed pooled shape, AR6, backfill) = 0.2781 (sd 0.3341)
+sanity reproduction here: mean_wis=0.2781 sd_wis=0.3341
+
+=== 1: profile decay (recency-weighted pooled shape) sweep ===
+  decay=0.4 -> mean_wis=0.2602 sd_wis=0.3071
+  decay=0.3 -> mean_wis=0.2602 sd_wis=0.3005
+  decay=0.5 -> mean_wis=0.2624 sd_wis=0.3167
+  decay=0.2 -> mean_wis=0.2625 sd_wis=0.2972
+  decay=0.6 -> mean_wis=0.2663 sd_wis=0.3278
+  decay=0.7 -> mean_wis=0.2702 sd_wis=0.3378
+  decay=0.8 -> mean_wis=0.2728 sd_wis=0.3431
+  decay=0.9 -> mean_wis=0.2745 sd_wis=0.3409
+  decay=1.0 -> mean_wis=0.2781 sd_wis=0.3341
+best: decay=0.4 mean_wis=0.2602 sd_wis=0.3071
+
+-- breakdown by location (core vs decay=0.4) --
+  HHS Region 10   core=0.2248 decay=0.1935 improvement=0.0313
+  HHS Region 1    core=0.2054 decay=0.1749 improvement=0.0305
+  HHS Region 5    core=0.2096 decay=0.1793 improvement=0.0302
+  HHS Region 4    core=0.3096 decay=0.2799 improvement=0.0297
+  HHS Region 7    core=0.3132 decay=0.287 improvement=0.0262
+  US National     core=0.1944 decay=0.1699 improvement=0.0245
+  HHS Region 8    core=0.1628 decay=0.1383 improvement=0.0245
+  HHS Region 3    core=0.2852 decay=0.2617 improvement=0.0235
+  HHS Region 2    core=0.5265 decay=0.508 improvement=0.0185
+  HHS Region 6    core=0.3575 decay=0.3404 improvement=0.0171
+  HHS Region 9    core=0.2701 decay=0.3295 improvement=-0.0594
+
+-- breakdown by validation season (core vs decay=0.4) --
+  season_year=2015 core=0.2403 decay=0.2409 improvement=-0.0006
+  season_year=2016 core=0.3172 decay=0.2802 improvement=0.037
+
+=== 2a: within-season phase adaptation sweep ===
+  min_obs=6 phi_grid=-4:4 pooled=true -> mean_wis=0.2996 sd_wis=0.3959
+  min_obs=6 phi_grid=-4:4 pooled=false -> mean_wis=0.3027 sd_wis=0.4222
+  min_obs=6 phi_grid=-8:8 pooled=true -> mean_wis=0.3038 sd_wis=0.398
+  min_obs=10 phi_grid=-8:8 pooled=true -> mean_wis=0.3106 sd_wis=0.3973
+  min_obs=6 phi_grid=-8:8 pooled=false -> mean_wis=0.3163 sd_wis=0.4371
+  min_obs=10 phi_grid=-8:8 pooled=false -> mean_wis=0.322 sd_wis=0.4364
+best: min_obs=6 phi_grid=-4:4 pooled=true mean_wis=0.2996 sd_wis=0.3959
+
+=== 2b: within-season amplitude adaptation sweep ===
+  min_obs=6 shrink=0.25 -> mean_wis=0.2735 sd_wis=0.3351
+  min_obs=6 shrink=0.1 -> mean_wis=0.2755 sd_wis=0.3338
+  min_obs=6 shrink=0.5 -> mean_wis=0.2761 sd_wis=0.3416
+  min_obs=6 shrink=1.0 -> mean_wis=0.2955 sd_wis=0.3705
+  min_obs=10 shrink=1.0 -> mean_wis=0.2981 sd_wis=0.3697
+best: min_obs=6 shrink=0.25 mean_wis=0.2735 sd_wis=0.3351
+
+=== 2c: phase+amplitude combined (best settings of each) ===
+mean_wis=0.2985 sd_wis=0.3963 n_tasks=2596
+
+=== 3: stacked (best decay + best phase+amp) ===
+decay=0.4, phase phi_grid=-4:4 pooled=true, amp shrink=0.25
+mean_wis=0.2645 sd_wis=0.3191 n_tasks=2596
+
+=== overall comparison ===
+profile decay only            mean_wis=0.2602   sd_wis=0.3071   decay=0.4
+stacked (decay+phase+amp)     mean_wis=0.2645   sd_wis=0.3191   all three together
+amplitude only                mean_wis=0.2735   sd_wis=0.3351   min_obs=6 shrink=0.25
+core (fixed shape, no drift)  mean_wis=0.2781   sd_wis=0.3341   reference, from seasoncombo
+phase+amplitude               mean_wis=0.2985   sd_wis=0.3963   best settings of each
+phase only                    mean_wis=0.2996   sd_wis=0.3959   min_obs=6 phi_grid=-4:4 pooled=true
+
+=== winner: profile decay only ===
+mean_wis=0.2602 sd_wis=0.3071 (decay=0.4)
+vs fixed-shape core reference (0.2781): 0.0179 (6.43%)

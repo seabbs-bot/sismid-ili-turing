@@ -1,0 +1,55 @@
+ensemble of simple analytic models -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 33.9s
+
+members:
+  ar6         -- plain AR(6), OLS + Gaussian paths
+  ar6bf       -- AR(6) + ar6bf backfill correction
+  climatology -- seasonal-naive empirical quantiles (+/-2 wk band)
+  ses         -- simple exponential smoothing (level only, grid-searched alpha)
+
+combination methods:
+  ens-mean         -- simple average of quantile values across members
+  ens-median       -- pointwise median across members
+  ens-wis-weighted -- weights = 1/mean_wis per member, normalised (tuned on validation only)
+
+reference points from submissions/seabbs_bot-ar6bf/README.md: nfidd-ar6=0.368 (sd 0.471), seabbs_bot-ar6bf=0.359 (sd 0.452)
+
+ranking (sorted by mean_wis, ascending):
+model               mean_wis    sd_wis      n_tasks
+ens-mean            0.2902      0.3334      2596
+ens-wis-weighted    0.294       0.3407      2596
+ens-median          0.3395      0.4158      2596
+ar6bf               0.3589      0.4528      2596
+ar6                 0.3684      0.4709      2596
+ses                 0.3878      0.432       2596
+climatology         0.4234      0.4088      2596
+
+weights (1/mean_wis, normalised): Dict("ses" => 0.2469428231324782, "ar6" => 0.25997157975562246, "ar6bf" => 0.26686540225109806, "climatology" => 0.2262201948608013)
+
+=== best: ens-mean ===
+mean_wis=0.2902 sd_wis=0.3334 n_tasks=2596
+vs seabbs_bot-ar6bf (0.359): 0.0688 (19.16%)
+
+-- breakdown by location (best) --
+HHS Region 8    mean_wis=0.1652 n=236
+HHS Region 1    mean_wis=0.1955 n=236
+HHS Region 5    mean_wis=0.214 n=236
+US National     mean_wis=0.2154 n=236
+HHS Region 10   mean_wis=0.2303 n=236
+HHS Region 9    mean_wis=0.2789 n=236
+HHS Region 3    mean_wis=0.3085 n=236
+HHS Region 4    mean_wis=0.3137 n=236
+HHS Region 7    mean_wis=0.3173 n=236
+HHS Region 6    mean_wis=0.4368 n=236
+HHS Region 2    mean_wis=0.5169 n=236
+
+-- breakdown by horizon (best) --
+h=1: mean_wis=0.2011 n=649
+h=2: mean_wis=0.2613 n=649
+h=3: mean_wis=0.3242 n=649
+h=4: mean_wis=0.3743 n=649
+
+-- breakdown by season (best) --
+season 2015: mean_wis=0.2309 n=1320
+season 2016: mean_wis=0.3516 n=1276

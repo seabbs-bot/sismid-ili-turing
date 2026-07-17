@@ -1,0 +1,76 @@
+round 2 stack -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 56.2s
+
+round-1 winner (seasoncombo core): mean_wis=0.2781 sd_wis=0.3341 (experiments/simple-round/seasoncombo/score.txt)
+
+=== reproduction check + single-addition ablations ===
+  core (fourthroot, reproduce)     mean_wis=0.2781 sd_wis=0.3341 cov50=0.404 cov90=0.783
+  core+log                         mean_wis=0.271 sd_wis=0.2973 cov50=0.434 cov90=0.821
+  core+tstudent                    mean_wis=0.2716 sd_wis=0.2944 cov50=0.524 cov90=0.903
+  core+pool(w=0.5)                 mean_wis=0.2709 sd_wis=0.3273 cov50=0.415 cov90=0.791
+
+=== additions stacked on the log core ===
+  log+tstudent                               mean_wis=0.2697 sd_wis=0.261 cov50=0.55 cov90=0.937
+  log+pool(w=0.5)                            mean_wis=0.2625 sd_wis=0.2933 cov50=0.442 cov90=0.826
+  log+tstudent+pool(w=0.5)  [full stack]     mean_wis=0.2618 sd_wis=0.258 cov50=0.556 cov90=0.938
+
+=== pool-weight sensitivity on top of log+tstudent ===
+  log+tstudent+pool(w=0.25)        mean_wis=0.2649 sd_wis=0.2587 cov50=0.556 cov90=0.938
+  log+tstudent+pool(w=0.5)         mean_wis=0.2618 sd_wis=0.258 cov50=0.556 cov90=0.938
+  log+tstudent+pool(w=0.75)        mean_wis=0.2604 sd_wis=0.2582 cov50=0.557 cov90=0.941
+  log+tstudent+pool(w=0.9)         mean_wis=0.2601 sd_wis=0.2587 cov50=0.565 cov90=0.943
+  log+tstudent+pool(w=1.0)         mean_wis=0.2602 sd_wis=0.259 cov50=0.563 cov90=0.944
+
+=== ranked (all combos) ===
+  log+tstudent+pool(w=0.9)                   mean_wis=0.2601 sd_wis=0.2587
+  log+tstudent+pool(w=1.0)                   mean_wis=0.2602 sd_wis=0.259
+  log+tstudent+pool(w=0.75)                  mean_wis=0.2604 sd_wis=0.2582
+  log+tstudent+pool(w=0.5)  [full stack]     mean_wis=0.2618 sd_wis=0.258
+  log+tstudent+pool(w=0.5)                   mean_wis=0.2618 sd_wis=0.258
+  log+pool(w=0.5)                            mean_wis=0.2625 sd_wis=0.2933
+  log+tstudent+pool(w=0.25)                  mean_wis=0.2649 sd_wis=0.2587
+  log+tstudent                               mean_wis=0.2697 sd_wis=0.261
+  core+pool(w=0.5)                           mean_wis=0.2709 sd_wis=0.3273
+  core+log                                   mean_wis=0.271 sd_wis=0.2973
+  core+tstudent                              mean_wis=0.2716 sd_wis=0.2944
+  core (fourthroot, reproduce)               mean_wis=0.2781 sd_wis=0.3341
+
+=== marginal contribution on top of the core (fourthroot, mean_wis=0.2781) ===
+  core+log             delta=0.0071 (2.55%)
+  core+tstudent        delta=0.0065 (2.35%)
+  core+pool(w=0.5)     delta=0.0072 (2.58%)
+
+=== marginal contribution on top of the log core (mean_wis=0.271) ===
+  log+tstudent                               delta=0.0013 (0.48%)
+  log+pool(w=0.5)                            delta=0.0085 (3.13%)
+  log+tstudent+pool(w=0.5)  [full stack]     delta=0.0092 (3.38%)
+
+=== winner: log+tstudent+pool(w=0.9) ===
+mean_wis=0.2601 sd_wis=0.2587 cov50=0.565 cov90=0.943
+vs round-1 core (0.2781): 0.018 (6.47%)
+
+winner mean WIS by location:
+  HHS Region 8     0.1533 (n=236)
+  US National      0.1757 (n=236)
+  HHS Region 1     0.1774 (n=236)
+  HHS Region 5     0.1831 (n=236)
+  HHS Region 10    0.2315 (n=236)
+  HHS Region 9     0.2344 (n=236)
+  HHS Region 3     0.2603 (n=236)
+  HHS Region 4     0.2896 (n=236)
+  HHS Region 7     0.3034 (n=236)
+  HHS Region 6     0.3474 (n=236)
+  HHS Region 2     0.505 (n=236)
+
+winner mean WIS by season:
+  season 1: mean_wis=0.2377 sd_wis=0.1903 (n=1320)
+  season 2: mean_wis=0.2833 sd_wis=0.3125 (n=1276)
+
+winner mean WIS by horizon:
+  h=1: 0.1943 (n=649)
+  h=2: 0.2414 (n=649)
+  h=3: 0.2873 (n=649)
+  h=4: 0.3176 (n=649)
+
+Not stacked here: the log_r9_sqrt refinement (experiments/simple-round/transform, a further ~0.2% on top of plain log in the plain-AR family) -- the pooled seasonal profile mixes deviations from all 11 locations in one shared shape, and a per-location modelling scale override would need either a separate single-location climatology for Region 9 or a scale-aware re-derivation of the pooling step; left as follow-up given the small expected effect size relative to the three additions above.

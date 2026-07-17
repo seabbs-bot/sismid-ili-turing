@@ -1,0 +1,78 @@
+backfill correction sweep -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 156.5s
+
+baseline (plain AR(6), no correction):
+  mean_wis=0.3684 sd_wis=0.4708 n_tasks=2596
+reference points from submissions/seabbs_bot-ar6bf/README.md: nfidd-ar6=0.368 (sd 0.471), seabbs_bot-ar6bf (additive/per-loc/median/w=8)=0.359 (sd 0.452)
+
+full sweep (sorted by mean_wis, ascending):
+mode           window  pooled  stat    mean_wis    sd_wis
+multiplicative 6       per-loc median  0.3586      0.4489
+multiplicative 8       per-loc median  0.3587      0.449
+multiplicative 10      per-loc median  0.3587      0.449
+multiplicative 12      per-loc median  0.3587      0.4491
+multiplicative 4       per-loc median  0.3587      0.4492
+additive       6       per-loc median  0.359       0.4521
+additive       8       per-loc median  0.359       0.4521
+additive       10      per-loc median  0.3591      0.4521
+additive       12      per-loc median  0.3591      0.4521
+additive       4       per-loc median  0.3591      0.4523
+additive       6       per-loc mean    0.36        0.4542
+additive       8       per-loc mean    0.3601      0.4543
+additive       10      per-loc mean    0.3601      0.4542
+additive       4       per-loc mean    0.3602      0.4546
+additive       12      per-loc mean    0.3603      0.4549
+multiplicative 6       per-loc mean    0.3632      0.4562
+multiplicative 8       per-loc mean    0.3632      0.4563
+multiplicative 10      per-loc mean    0.3633      0.4562
+multiplicative 4       per-loc mean    0.3634      0.4566
+multiplicative 12      per-loc mean    0.3635      0.4571
+multiplicative 4       pooled  median  0.3663      0.4641
+multiplicative 6       pooled  median  0.3663      0.4641
+multiplicative 10      pooled  median  0.3664      0.4641
+multiplicative 12      pooled  median  0.3664      0.4641
+multiplicative 8       pooled  median  0.3664      0.4641
+additive       4       pooled  median  0.3677      0.4666
+additive       6       pooled  median  0.3677      0.4666
+additive       10      pooled  median  0.3678      0.4667
+additive       12      pooled  median  0.3678      0.4667
+additive       8       pooled  median  0.3678      0.4667
+additive       4       pooled  mean    0.368       0.4699
+additive       6       pooled  mean    0.368       0.4699
+additive       10      pooled  mean    0.3681      0.47
+additive       8       pooled  mean    0.3681      0.47
+additive       12      pooled  mean    0.3683      0.4703
+multiplicative 4       pooled  mean    0.3691      0.4732
+multiplicative 6       pooled  mean    0.3691      0.4733
+multiplicative 10      pooled  mean    0.3692      0.4734
+multiplicative 8       pooled  mean    0.3692      0.4734
+multiplicative 12      pooled  mean    0.3694      0.474
+
+=== best variant ===
+mode=multiplicative window=6 pooled=false stat=median
+mean_wis=0.3586 sd_wis=0.4489 n_tasks=2596
+improvement vs uncorrected AR(6) baseline: 0.0098 (2.65%)
+
+-- breakdown by location (best variant) --
+HHS Region 2    best=0.5829 base=0.6472 improvement=0.0643
+HHS Region 9    best=0.4391 base=0.4521 improvement=0.013
+HHS Region 7    best=0.367 base=0.3793 improvement=0.0123
+HHS Region 3    best=0.382 base=0.3919 improvement=0.0098
+HHS Region 6    best=0.5327 base=0.5368 improvement=0.0041
+US National     best=0.2805 base=0.2819 improvement=0.0014
+HHS Region 4    best=0.3884 base=0.3895 improvement=0.0012
+HHS Region 10   best=0.2637 base=0.2643 improvement=0.0006
+HHS Region 1    best=0.2516 base=0.252 improvement=0.0004
+HHS Region 8    best=0.193 base=0.1934 improvement=0.0004
+HHS Region 5    best=0.264 base=0.264 improvement=-0.0001
+
+-- breakdown by season (best variant) --
+season 2015: best=0.2772 base=0.2937 improvement=0.0165
+season 2016: best=0.4429 base=0.4457 improvement=0.0028
+
+-- breakdown by horizon (best variant) --
+h=1: best=0.2313 base=0.2452 improvement=0.0138
+h=2: best=0.3194 base=0.3299 improvement=0.0105
+h=3: best=0.4082 base=0.4167 improvement=0.0085
+h=4: best=0.4756 base=0.4818 improvement=0.0063

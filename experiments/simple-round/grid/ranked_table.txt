@@ -1,0 +1,87 @@
+simple-round systematic grid: AR order x backfill x pooled season x AR pooling x differencing
+3x2x2x2x2 = 48 combinations, validation seasons (1, 2) only, natural-scale WIS
+runtime: 119.1s total (19.9s data caching)
+
+backfill = multiplicative, w=6, per-loc, median (winning cell of experiments/simple-round/backfill/score.txt)
+season = pooled 3-harmonic Fourier shape, season_year <= 2014 (experiments/simple-round/seasonpool)
+ar_pool = fullpool, w=0.5 shrinkage (experiments/simple-round/pool)
+diff = AR fit to the first difference of the (optionally deseasonalised) residual, reconstructed via per-path cumulative sum
+
+reference points:
+  nfidd-ar6        (order=6,  no backfill)         = 0.368
+  seabbs_bot-ar6bf (order=6,  backfill)            = 0.359
+  ar-order best    (order=12, backfill)            = 0.3518
+  combo (per-loc Fourier season, ar4+bf)           = 0.3349
+  seasonpool (order=6, bf, pooled season)          = 0.3049
+
+full ranked table (sorted by mean_wis, ascending):
+order  backfill  season  ar_pool  diff   mean_wis   sd_wis
+6      true      true    true     false  0.2997     0.3826
+8      true      true    true     false  0.3008     0.3823
+12     true      true    true     false  0.3012     0.3789
+6      false     true    true     false  0.3026     0.3746
+8      false     true    true     false  0.3034     0.3745
+12     false     true    true     false  0.3039     0.3712
+6      true      true    false    false  0.3057     0.3885
+8      true      true    false    false  0.3102     0.3917
+6      false     true    false    false  0.3107     0.3839
+12     true      true    false    false  0.3139     0.3944
+8      false     true    false    false  0.3155     0.3888
+6      true      true    true     true   0.3161     0.3794
+12     true      true    true     true   0.3175     0.3899
+8      true      true    true     true   0.3184     0.386
+12     false     true    false    false  0.3204     0.3937
+6      true      true    false    true   0.3235     0.3906
+12     false     true    true     true   0.326      0.3915
+6      false     true    true     true   0.3261     0.3878
+8      false     true    true     true   0.3272     0.3911
+8      true      true    false    true   0.3287     0.4022
+12     true      true    false    true   0.333      0.414
+6      false     true    false    true   0.3343     0.3992
+8      false     true    false    true   0.3386     0.4088
+12     false     true    false    true   0.344      0.4211
+12     true      false   true     false  0.3447     0.4262
+8      true      false   true     false  0.3492     0.4312
+12     true      false   false    false  0.3513     0.4475
+8      true      false   false    false  0.3521     0.4421
+12     false     false   true     false  0.3549     0.4507
+6      true      false   true     false  0.3552     0.4365
+6      true      false   false    false  0.3586     0.4489
+8      false     false   true     false  0.3588     0.4551
+12     false     false   false    false  0.3623     0.4698
+8      false     false   false    false  0.3628     0.4644
+6      false     false   true     false  0.3643     0.4595
+6      false     false   false    false  0.3684     0.4708
+6      true      false   true     true   0.3951     0.4904
+12     true      false   true     true   0.3984     0.5066
+8      true      false   true     true   0.3994     0.4952
+6      true      false   false    true   0.4025     0.5055
+8      true      false   false    true   0.4102     0.5148
+6      false     false   true     true   0.415      0.5421
+12     true      false   false    true   0.4165     0.5489
+8      false     false   true     true   0.4194     0.5477
+12     false     false   true     true   0.42       0.5616
+6      false     false   false    true   0.4235     0.5563
+8      false     false   false    true   0.4314     0.5661
+12     false     false   false    true   0.4399     0.6043
+
+-- main effects (mean_wis averaged over the other 4 factors) --
+  ar_order:
+    6: mean_wis=0.3501 (over 16 cells), mean_sd_wis=0.4373
+    8: mean_wis=0.3516 (over 16 cells), mean_sd_wis=0.4401
+    12: mean_wis=0.353 (over 16 cells), mean_sd_wis=0.4481
+  backfill:
+    false: mean_wis=0.3572 (over 24 cells), mean_sd_wis=0.4514
+    true: mean_wis=0.3459 (over 24 cells), mean_sd_wis=0.4323
+  season:
+    false: mean_wis=0.3856 (over 24 cells), mean_sd_wis=0.4934
+    true: mean_wis=0.3176 (over 24 cells), mean_sd_wis=0.3903
+  ar_pool:
+    false: mean_wis=0.3566 (over 24 cells), mean_sd_wis=0.4507
+    true: mean_wis=0.3466 (over 24 cells), mean_sd_wis=0.433
+  diff:
+    false: mean_wis=0.3321 (over 24 cells), mean_sd_wis=0.417
+    true: mean_wis=0.371 (over 24 cells), mean_sd_wis=0.4667
+
+best overall: order=6 backfill=true season=true ar_pool=true diff=false
+  mean_wis=0.2997 sd_wis=0.3826 n_tasks=2596

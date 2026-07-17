@@ -1,0 +1,102 @@
+seasonal combination sweep -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 108.0s
+
+reference points:
+  nfidd-ar6 (plain AR6, no season)          = 0.368 (sd 0.471)
+  seabbs_bot-ar6bf (AR6 + backfill)          = 0.359 (sd 0.452)
+  nfidd-ar6 fourier (per-location season)    = 0.412 (sd 0.521, WORSE -- overfit)
+  local no-season sanity rerun (this script) = 0.3684 (sd 0.4708)
+
+=== combo 1: core (season + AR6 + backfill) ===
+mean_wis=0.2781 sd_wis=0.3341 n_tasks=2596
+
+=== combo 2: tvar (season + discounted AR) sweep ===
+  discount=1.0 -> mean_wis=0.2866 sd_wis=0.3349
+  discount=0.995 -> mean_wis=0.2892 sd_wis=0.338
+  discount=0.99 -> mean_wis=0.2926 sd_wis=0.3427
+  discount=0.97 -> mean_wis=0.3125 sd_wis=0.3807
+  discount=0.95 -> mean_wis=0.3389 sd_wis=0.4444
+best: discount=1.0 mean_wis=0.2866 sd_wis=0.3349
+
+=== combo 3: ridgevar (season + cross-location ridge-VAR) sweep ===
+  p=2 lambda=1.0 -> mean_wis=0.3087 sd_wis=0.3786
+  p=1 lambda=1.0 -> mean_wis=0.3276 sd_wis=0.4132
+  p=2 lambda=5.0 -> mean_wis=0.3441 sd_wis=0.4164
+  p=1 lambda=5.0 -> mean_wis=0.3771 sd_wis=0.4482
+  p=2 lambda=20.0 -> mean_wis=0.3807 sd_wis=0.434
+  p=1 lambda=20.0 -> mean_wis=0.3984 sd_wis=0.4499
+best: p=2 lambda=1.0 mean_wis=0.3087 sd_wis=0.3786
+
+=== combo 4: amp (season + shrunk per-location amplitude) sweep ===
+  shrink=1.0 -> mean_wis=0.2827 sd_wis=0.3208
+  shrink=0.75 -> mean_wis=0.2832 sd_wis=0.3245
+  shrink=0.5 -> mean_wis=0.2841 sd_wis=0.3283
+  shrink=0.25 -> mean_wis=0.2852 sd_wis=0.3318
+  shrink=0.0 -> mean_wis=0.2866 sd_wis=0.3349
+best: shrink=1.0 mean_wis=0.2827 sd_wis=0.3208
+
+=== bonus combo 5: amp+backfill (combo 4's best shrink stacked on combo 1's backfill) ===
+shrink=1.0 backfill window=8 (additive/per-loc/median)
+mean_wis=0.2748 sd_wis=0.3198 n_tasks=2596
+
+=== PRIORITY combo 6: differencing (ARIMA(p,1,0)-style residual), season x backfill crossed ===
+diff_order in (1, 2, 3, 6) swept in every cell; "season"=pooled seasonal shape on/off, "backfill"=8-week additive/per-loc/median correction on/off
+season=true backfill=true:
+    diff_order=2 -> mean_wis=0.2904 sd_wis=0.3313
+    diff_order=1 -> mean_wis=0.2914 sd_wis=0.3325
+    diff_order=3 -> mean_wis=0.2928 sd_wis=0.3329
+    diff_order=6 -> mean_wis=0.302 sd_wis=0.3536
+  best: diff_order=2 mean_wis=0.2904 sd_wis=0.3313
+season=true backfill=false:
+    diff_order=2 -> mean_wis=0.3032 sd_wis=0.3432
+    diff_order=1 -> mean_wis=0.3047 sd_wis=0.3461
+    diff_order=3 -> mean_wis=0.3056 sd_wis=0.3456
+    diff_order=6 -> mean_wis=0.3168 sd_wis=0.3677
+  best: diff_order=2 mean_wis=0.3032 sd_wis=0.3432
+season=false backfill=true:
+    diff_order=2 -> mean_wis=0.3856 sd_wis=0.429
+    diff_order=1 -> mean_wis=0.3869 sd_wis=0.4269
+    diff_order=3 -> mean_wis=0.3908 sd_wis=0.453
+    diff_order=6 -> mean_wis=0.4046 sd_wis=0.5132
+  best: diff_order=2 mean_wis=0.3856 sd_wis=0.429
+season=false backfill=false:
+    diff_order=2 -> mean_wis=0.3977 sd_wis=0.457
+    diff_order=1 -> mean_wis=0.3994 sd_wis=0.4542
+    diff_order=3 -> mean_wis=0.4035 sd_wis=0.4829
+    diff_order=6 -> mean_wis=0.4235 sd_wis=0.5563
+  best: diff_order=2 mean_wis=0.3977 sd_wis=0.457
+
+PRIORITY TARGET (season=true, backfill=true, Sam's front-runner): diff_order=2
+mean_wis=0.2904 sd_wis=0.3313
+vs AR(6)+backfill reference (0.359): 0.0686 (19.12%)
+vs combo 1 core (AR-on-residual, no differencing, 0.2781): -0.0123 (-4.41%, differencing HURTS -- AR-on-residual is better)
+
+-- priority target: breakdown by location vs core --
+HHS Region 2    diff=0.4825 core=0.5265 improvement=0.044
+HHS Region 5    diff=0.2022 core=0.2096 improvement=0.0074
+HHS Region 4    diff=0.3043 core=0.3096 improvement=0.0053
+HHS Region 1    diff=0.2034 core=0.2054 improvement=0.0021
+US National     diff=0.194 core=0.1944 improvement=0.0004
+HHS Region 8    diff=0.1672 core=0.1628 improvement=-0.0044
+HHS Region 7    diff=0.3307 core=0.3132 improvement=-0.0175
+HHS Region 3    diff=0.309 core=0.2852 improvement=-0.0238
+HHS Region 10   diff=0.262 core=0.2248 improvement=-0.0372
+HHS Region 9    diff=0.3202 core=0.2701 improvement=-0.0501
+HHS Region 6    diff=0.4185 core=0.3575 improvement=-0.061
+
+-- priority target: breakdown by season vs core --
+season 2015: diff=0.2447 core=0.2403 improvement=-0.0044
+season 2016: diff=0.3376 core=0.3172 improvement=-0.0204
+
+=== overall comparison (best of each combo) ===
+amp+backfill            mean_wis=0.2748   sd_wis=0.3198   shrink=1.0, backfill window=8 (additive/per-loc/median)
+core                    mean_wis=0.2781   sd_wis=0.3341   backfill window=8 (additive/per-loc/median)
+amp                     mean_wis=0.2827   sd_wis=0.3208   shrink=1.0
+tvar                    mean_wis=0.2866   sd_wis=0.3349   discount=1.0
+diff (season+backfill)  mean_wis=0.2904   sd_wis=0.3313   diff_order=2, backfill window=8 (additive/per-loc/median)
+ridgevar                mean_wis=0.3087   sd_wis=0.3786   p=2 lambda=1.0
+
+=== winner: amp+backfill ===
+mean_wis=0.2748 sd_wis=0.3198 (shrink=1.0, backfill window=8 (additive/per-loc/median))
+vs AR(6)+backfill reference (0.359): 0.0842 (23.46%)

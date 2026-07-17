@@ -1,0 +1,3 @@
+transform=fourthroot
+ndraws=150
+Dmax=12

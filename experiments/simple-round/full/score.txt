@@ -1,0 +1,59 @@
+full model (seasonality + backfill + pooling) -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 71.0s
+
+components (each fixed at its own single-lever sweep's best variant):
+  season:   pooled 3-harmonic climatology, season_year <= 2014
+  backfill: multiplicative, per-location, median, window 6
+  pool:     fullpool anchor, weight 0.5
+
+reference points:
+  nfidd-ar6 (plain AR(6))                 = 0.368
+  seabbs_bot-ar6bf (AR(6)+backfill)        = 0.359
+  ar-order sweep: AR(12)+backfill          = 0.3518
+  seasonpool (AR(6)+backfill+pooled season) = 0.3049
+  pool sweep: AR(6)+fullpool(w=0.5)        = 0.3643
+
+-- full model, AR order sweep --
+  order=6: mean_wis=0.2997 sd_wis=0.3826 n_tasks=2596
+  order=8: mean_wis=0.3008 sd_wis=0.3823 n_tasks=2596
+  order=12: mean_wis=0.3012 sd_wis=0.3789 n_tasks=2596
+
+best order: 6, mean_wis=0.2997 sd_wis=0.3826 n_tasks=2596
+vs ar-order sweep's AR(12)+backfill (0.3518): 0.0521 (14.81%)
+vs seasonpool alone (0.3049): 0.0052 (1.7%)
+
+-- ablation at order=6 --
+  full (all three)               mean_wis=0.2997 sd_wis=0.3826
+  no season                      mean_wis=0.3552 sd_wis=0.4365
+  no backfill                    mean_wis=0.3026 sd_wis=0.3746
+  no pool                        mean_wis=0.3057 sd_wis=0.3885
+  AR only (none of the three)    mean_wis=0.3684 sd_wis=0.4708
+
+component contributions (full model's mean_wis minus dropping that one component; positive = the component was helping):
+  season: dropping it changes mean_wis by 0.0555 (18.51% relative to the full model)
+  backfill: dropping it changes mean_wis by 0.0029 (0.96% relative to the full model)
+  pool: dropping it changes mean_wis by 0.006 (1.99% relative to the full model)
+
+-- breakdown by location (full model) --
+  HHS Region 8     mean_wis=0.1744 n=236
+  HHS Region 1     mean_wis=0.2019 n=236
+  HHS Region 10    mean_wis=0.2309 n=236
+  US National      mean_wis=0.2399 n=236
+  HHS Region 5     mean_wis=0.2419 n=236
+  HHS Region 9     mean_wis=0.2707 n=236
+  HHS Region 3     mean_wis=0.3132 n=236
+  HHS Region 7     mean_wis=0.3272 n=236
+  HHS Region 4     mean_wis=0.3622 n=236
+  HHS Region 6     mean_wis=0.4174 n=236
+  HHS Region 2     mean_wis=0.5172 n=236
+
+-- breakdown by season (full model) --
+  season 2015: mean_wis=0.2729 n=1320
+  season 2016: mean_wis=0.3274 n=1276
+
+-- breakdown by horizon (full model) --
+  h=1: mean_wis=0.2116 n=649
+  h=2: mean_wis=0.2765 n=649
+  h=3: mean_wis=0.3367 n=649
+  h=4: mean_wis=0.3741 n=649

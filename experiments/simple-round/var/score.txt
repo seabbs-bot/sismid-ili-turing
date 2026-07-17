@@ -1,0 +1,161 @@
+Multi-location AR/VAR sweep, simple-model wide round
+=====================================================
+
+Family: submissions/nfidd-ar6/generate_forecasts.jl (plain per-location
+AR(p), OLS on fourthroot-transformed vintage series, 1000 simulated
+Gaussian-innovation paths). Own AR(6) is kept unchanged throughout;
+what varies is whether/how OTHER locations' recent values are added as
+extra predictors, and how heavily any cross-location coefficients are
+regularised. All candidates simulate forward JOINTLY across all 11
+locations (h=1..4): because the cross-location predictors are lagged
+(never lag 0), a later horizon's simulated value for one location
+genuinely depends on every location's simulated value at the previous
+horizon.
+
+Scored on VALIDATION SEASONS ONLY (1, 2 = 2015/16, 2016/17), against
+target-data/oracle-output.csv in the local hub clone
+(~/code/external/sismid-ili-forecasting-sandbox). WIS is computed
+in-line (same formula as src/scoring.jl's `wis`) to avoid the
+ScoringRules dependency and stay on the light CSV/DataFrames/
+Statistics/LinearAlgebra stack. Test seasons (3-5) were never
+generated, scored, or looked at during tuning. Produced by sweep.jl in
+this directory; total sweep runtime 61.7s (13 candidates x 59 origins
+x 11 locations, all in-process).
+
+Reference points from submissions/seabbs_bot-ar6bf/README.md:
+nfidd-ar6 = 0.368 (sd 0.471), seabbs_bot-ar6bf = 0.359 (sd 0.452).
+
+Full sweep (13 candidates, sorted by mean_wis, ascending)
+----------------------------------------------------------
+
+model                 mean_wis    sd_wis
+var1_ridge1.5         0.3383      0.4373   <- BEST (this variant)
+var1_ridge1           0.3384      0.4419
+var1_ridge2           0.3389      0.4357
+var2_ridge5           0.3391      0.4252
+var1_ridge0.5         0.3407      0.4570
+var1_ridge3           0.3408      0.4358
+var1_ridge5           0.3446      0.4387
+ar_nat_neighbor_ols    0.3518      0.4493
+ar_nat_ols             0.3523      0.4554
+ar_neighbor_ols        0.3527      0.4449
+var2_ridge50           0.3565      0.4429
+ar6_baseline           0.3684      0.4713   = nfidd-ar6 (0.368)
+var1_ols               0.4214      0.5422   <- unpenalised VAR(1): WORSE
+                                                than the plain baseline
+
+Candidate definitions
+----------------------
+
+- ar6_baseline: plain per-location AR(6), no cross terms (sanity-check
+  replicate of nfidd-ar6; 0.3684 here vs 0.368 reported there, the gap
+  is Monte-Carlo path-simulation noise from a different RNG stream).
+- var1_*: own AR(6) + ALL 10 other locations' lag-1 value, ridge
+  penalty lambda applied ONLY to the 10 cross-location coefficients
+  (own AR(6) lags and the intercept are never penalised). lambda in
+  {0 (= var1_ols), 0.5, 1, 1.5, 2, 3, 5}.
+- var2_*: as var1, plus each other location's lag-2 value too (a full
+  VAR(2)), same ridge treatment.
+- ar_nat_ols: own AR(6) + `US National`'s lag-1 value only (a single,
+  reduced-rank common-factor predictor), OLS (no ridge -- only one
+  extra, low-risk parameter).
+- ar_neighbor_ols: own AR(6) + the single most-correlated OTHER
+  location's lag-1 value, computed from the training window itself
+  (not hand-coded HHS-region geography) so it is refit per split, OLS.
+- ar_nat_neighbor_ols: both of the above combined, OLS.
+
+Chosen: var1_ridge1.5 (ridge-penalised VAR(1) on top of AR(6)),
+mean WIS 0.3383
+  - beats nfidd-ar6 by ~8.1% (0.368 -> 0.3383)
+  - beats seabbs_bot-ar6bf by ~5.8% (0.359 -> 0.3383)
+
+Does cross-location information help? Yes, but only once regularised.
+------------------------------------------------------------------------
+
+- The unpenalised dense VAR(1) (var1_ols, 11 locations x 1 lag = 10
+  extra predictors per location on top of the own AR(6)) scores WORSE
+  than the plain AR(6) baseline (0.4214 vs 0.3684): with
+  window_weeks=104 (~98 usable rows per split after the AR(6) lag cut)
+  and highly collinear predictors (every location's raw level co-moves
+  strongly, docs/eda/04-cross-location.md's level-correlation mean
+  0.76), 10 extra unregularised coefficients overfit badly. This is
+  exactly the risk the EDA flagged ("a full dense VAR(1)/VAR(2) over
+  11 locations overfits, so REGULARISE").
+- Ridge-penalising just the cross-location block fixes this
+  completely and then helps: mean WIS falls from 0.3684 (no cross
+  info) to 0.3383 (ridge=1.5) as lambda is dialled in from "none" (var1_ols,
+  badly overfit) through a broad, FLAT optimum around lambda=1-2
+  (0.3383-0.3389, well within Monte-Carlo noise of each other) up to
+  lambda=5 (0.3446, drifting back towards the unpooled baseline as the
+  cross-location coefficients are shrunk towards 0).
+- VAR(2) (adding lag-2 cross terms) never beats the best VAR(1) variant
+  (var2_ridge5's 0.3391 vs var1_ridge1.5's 0.3383, and var2_ridge50's
+  0.3565 is worse than var1_ridge3's 0.3408 at a comparable
+  regularisation strength) -- consistent with
+  docs/eda/04-cross-location.md's lead-lag finding that every region's
+  cross-correlation with the national series peaks at lag 0, not
+  lag >= 1: there is no genuine extra lagged information at lag 2 to
+  recover, so its only effect is to add more parameters to regularise
+  away.
+- The lighter "own AR + a couple of extra predictors" family
+  (ar_nat_ols, ar_neighbor_ols, ar_nat_neighbor_ols: 0.3518-0.3527)
+  does help over the plain baseline (a smaller, ~4% gain), but far
+  less than the full ridge-VAR(1) (~8%): a single national or
+  nearest-neighbour lag-1 predictor captures only part of the
+  cross-location signal that the full (regularised) 10-predictor
+  cross-location block captures.
+- Net conclusion: the EDA's own prediction holds exactly -- cross-
+  location coupling in this data is real and useful for forecasting,
+  but it must be heavily shrunk (a handful of extra predictors is not
+  enough; a dense VAR needs a ridge penalty of a similar order of
+  magnitude to the own-AR fit itself) to avoid overfitting the
+  ~100-observation training window.
+
+Breakdown of the best variant (var1_ridge1.5) vs the plain AR(6)
+baseline
+-------------------------------------------------------------------
+
+By location (mean WIS, ascending = best first):
+  HHS Region 8    0.1960
+  HHS Region 1    0.2042
+  HHS Region 5    0.2277
+  HHS Region 10   0.2599
+  US National     0.2730
+  HHS Region 3    0.3450
+  HHS Region 4    0.3571
+  HHS Region 7    0.3602
+  HHS Region 9    0.3721
+  HHS Region 6    0.4837
+  HHS Region 2    0.6423   <- worst (also the worst location for
+                              every other simple-round candidate
+                              tried so far, e.g. ar-order/score.txt)
+
+By horizon (mean WIS, all n=649):
+  h=1: 0.2279
+  h=2: 0.3021
+  h=3: 0.3800
+  h=4: 0.4431
+
+(monotonic increase with horizon, as expected)
+
+By season (mean WIS):
+  2015/16 (season_year=2015)  0.2584  (n=1320)
+  2016/17 (season_year=2016)  0.4210  (n=1276)
+
+2016/17 is markedly harder than 2015/16, matching every other simple-
+round candidate's own season breakdown (e.g. ar-order/score.txt);
+cross-location coupling does not close that season-level gap, it
+improves both seasons roughly proportionally.
+
+Task-level: 1698 of 2596 (65.4%) individual forecast tasks improved
+over the plain AR(6) baseline -- a clear majority, not a mean shift
+concentrated in a few tasks.
+
+Reproduce
+---------
+
+  julia --project=<sismid-ili-turing repo> \
+      experiments/simple-round/var/sweep.jl
+
+  julia --project=<sismid-ili-turing repo> \
+      experiments/simple-round/var/generate.jl [hub_path]

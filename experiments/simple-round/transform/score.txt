@@ -1,0 +1,152 @@
+TRANSFORM family -- simple-model wide round (sismid-ili-turing)
+Scored on VALIDATION seasons (1, 2) ONLY, natural-scale WIS, against
+scratch-hub/target-data/oracle-output.csv. 2596 tasks throughout
+(59 origins x 11 locations x 4 horizons), matching nfidd-ar6's coverage.
+
+Baseline (submissions/nfidd-ar6/generate_forecasts.jl, fourth-root,
+merged PR #62):        mean_wis=0.368  sd_wis=0.471
+Backfill variant (seabbs_bot-ar6bf, fourth-root + backfill,
+PR #74):                mean_wis=0.359  sd_wis=0.452
+
+=== Full transform sweep (experiments/simple-round/transform/sweep.jl) ===
+Same AR(6) OLS-per-location fit/simulate as nfidd-ar6 throughout; only
+the modelling-scale transform changes between rows.
+
+candidate             mean_wis  sd_wis    n_tasks
+log_r9_sqrt            0.3529   0.4185    2596   <- picked (this dir's generate.jl)
+log_r9_boxcox          0.3534   0.4191    2596
+log                    0.3537   0.4194    2596
+boxcox_p013 (pooled)   0.3603   0.4445    2596
+fourthroot (baseline)  0.3684   0.4708    2596
+log1p                  0.3771   0.4907    2596
+sqrt                   0.3887   0.5298    2596
+identity               0.4385   0.6465    2596
+per_location_boxcox    0.7653   0.8278    2596   <- unstable, see below
+
+log = TRANSFORMS[:log] (EPS=1e-4 floor), unmodified from src/core.jl.
+boxcox_p013 = unshifted power transform w -> w^0.13 (the EDA's pooled
+Box-Cox MLE power, docs/eda/01-series-overview.md), same family as
+fourthroot (w^0.25) but with the fitted exponent instead of 0.25.
+log_r9_sqrt / log_r9_boxcox = `log` globally, with HHS Region 9
+overridden to `sqrt` (p=0.5) / its own fitted Box-Cox power (p=0.24,
+see below) respectively.
+per_location_boxcox = every location uses its own fitted Box-Cox power
+(grid-search MLE, `data/flu_data_hhs.csv`, season_year <= 2016; see
+sweep.jl's `fit_boxcox_power`).
+
+=== Headline finding: LOG beats FOURTH-ROOT, clearly ===
+
+fourthroot is the EDA's flattest-variance pick
+(docs/eda/01-series-overview.md), but WIS is scored on the NATURAL
+percentage scale, and there `log` wins by ~4% mean WIS (0.3537 vs
+0.3684) and is also more stable (sd_wis 0.419 vs 0.471). Variance-
+stabilisation on a log-variance regression and WIS-minimisation on the
+natural scale are different objectives: fourth-root's flatter modelling
+-scale residuals do not translate into a better-calibrated natural-
+scale predictive distribution once the AR(6) + Gaussian-innovation
+back-transform is applied. Every row between log (p=0) and fourthroot
+(p=0.25) sits monotonically between them on WIS (log1p, then a small
+gap, then fourthroot's neighbourhood), so this is not just one lucky
+transform -- lower power (closer to log) is better across the board for
+this scoring objective, except at the identity/sqrt end where WIS gets
+much worse again. log1p (0.3771) is worse than plain log (0.3537)
+despite cutting less far than log/EPS: consistent with
+docs/eda/01-series-overview.md's own finding that log1p under-
+stabilises variance in this data (its "+1" shift matters at these
+small percentage values), and evidently that shows up in WIS too, not
+just in the variance-stabilisation diagnostic.
+
+=== Per-location optimal transform: real effect, but numerically
+     dangerous applied naively ===
+
+Per-location fitted Box-Cox power (grid MLE, -0.6:0.02:1.0, on
+season_year <= 2016 finalized data, matching the exponent convention
+`w -> w^p`):
+
+  US National   -0.34      HHS Region 6   -0.14
+  HHS Region 1   0.00      HHS Region 7    0.04
+  HHS Region 2   0.12      HHS Region 8    0.16
+  HHS Region 3  -0.18      HHS Region 9    0.24   <- highest
+  HHS Region 4  -0.12      HHS Region 10   0.00
+  HHS Region 5  -0.30 (lowest)
+
+This confirms docs/eda/01-series-overview.md and
+docs/eda/07-region9-deepdive.md: Region 9 is the one location that
+wants a materially HIGHER power (less log-like, more sqrt-like) than
+everywhere else, and Region 5 sits at the opposite (more aggressive-
+than-log) extreme, matching the EDA's reported per-location Box-Cox
+range (-0.40 Region 5 to 0.29 Region 9) closely (this grid-search MLE
+is coarser but lands within 0.06-0.10 of both reported extremes).
+
+BUT: plugging all 11 fitted powers directly into the unshifted power
+family (`w -> w^p`) is a disaster (per_location_boxcox: mean_wis=0.765,
+more than DOUBLE the fourthroot baseline). Cause: `w^p` for p < 0
+diverges as w -> 0, and most locations have near-zero wILI weeks every
+summer trough; a location with a negative fitted power (US National,
+Region 3/4/5/6) blows up its own modelling-scale values there, wrecking
+the AR(6) fit and simulated forecast distribution for that location
+(compare per-location mean WIS: Region 6 goes from 0.50 under `log` to
+1.88 under naive per-location powers; Region 3/4/5/US National show the
+same 3-6x blow-up). This is exactly why `src/core.jl`'s `TRANSFORMS`
+implements `log` as its own branch (`log(max(w, EPS))`) rather than as
+the p -> 0 limit of the unshifted power family: `log` is the
+numerically stable choice whenever the fitted power is at or below 0,
+which is most locations here.
+
+Region 9's own fitted power (0.24) IS positive and numerically safe, so
+a targeted override -- `log` everywhere except Region 9 -- was tested
+two ways:
+
+  log_r9_boxcox (Region 9 -> p=0.24 fitted): mean_wis=0.3534 (vs
+  0.3537 plain log); Region 9's own per-task mean WIS improves from
+  0.4559 (plain log) to 0.4522.
+  log_r9_sqrt (Region 9 -> sqrt, p=0.5, the team's "Poisson-like"
+  heuristic): mean_wis=0.3529 (best candidate overall); Region 9's own
+  mean WIS improves further to 0.4470.
+
+Both directions of the override help, `sqrt` slightly more than the
+fitted p=0.24 -- consistent with Region 9's Taylor's-power-law slope
+(lambda=0.91, docs/eda/07-region9-deepdive.md) implying an even higher
+variance-stabilising power (p = 1 - lambda/2 ~ 0.55, almost exactly
+sqrt) than its own direct Box-Cox MLE (0.24) suggests. The improvement
+is real (consistent across both mixes, and both mean AND sd_wis move
+in the same direction) but small in absolute terms: log -> log_r9_sqrt
+is a further ~0.2% mean-WIS gain on top of log's already-large ~4% gain
+over fourthroot. Every other location is left on plain `log`
+unchanged (their per-location mean WIS is identical to plain `log`'s
+column in the sweep table, by construction).
+
+=== Picked: log_r9_sqrt ===
+
+experiments/simple-round/transform/generate.jl implements `log`
+globally with a `sqrt` override for HHS Region 9 only (`transform_for`
+in that file). mean_wis=0.3529, sd_wis=0.4185 (2596 tasks),
+independently reproduced by running generate.jl directly and scoring
+its output the same way as the sweep -- see per-location/per-season/
+per-horizon breakdown below.
+
+  per-location mean WIS (generate.jl output):
+    HHS Region 1    0.2405      HHS Region 6    0.5014
+    HHS Region 2    0.6067      HHS Region 7    0.3591
+    HHS Region 3    0.3790      HHS Region 8    0.1916
+    HHS Region 4    0.3759      HHS Region 9    0.4470  (sqrt override)
+    HHS Region 5    0.2541      HHS Region 10   0.2563
+    US National     0.2699
+
+  per-season mean WIS: season 1 (2015/16) 0.2932 (sd 0.3139, n=1320);
+  season 2 (2016/17) 0.4146 (sd 0.4970, n=1276) -- same pattern as
+  nfidd-ar6bf's README (season 1 easier than season 2 for this AR(6)
+  family regardless of transform).
+
+  per-horizon mean WIS: h=1 0.238, h=2 0.317, h=3 0.398, h=4 0.458 --
+  monotonically increasing with horizon, as expected.
+
+vs the two prior submissions:
+  nfidd-ar6 (fourthroot):            0.368 / sd 0.471
+  seabbs_bot-ar6bf (fourthroot+bf):  0.359 / sd 0.452
+  this (log + Region9 sqrt):         0.353 / sd 0.419  <- best of the three
+
+Transform alone (no backfill correction, no AR-order change, no
+seasonality) already beats both prior submissions, including the one
+with a backfill correction on top of fourthroot -- the transform choice
+matters more than the backfill correction did for this AR(6) family.

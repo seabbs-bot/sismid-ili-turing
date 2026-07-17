@@ -1,0 +1,6 @@
+name=nfidd-base
+status=failed
+transform=fourthroot
+error=no splits produced forecasts
+n_splits=4
+n_failed_splits=4

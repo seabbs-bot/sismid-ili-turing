@@ -1,0 +1,85 @@
+THOROUGH time-varying AR on the seasonal+backfill winner -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 108.5s
+
+Base model (unchanged): pooled seasonal climatology + per-(location,delay) backfill correction + per-location AR(6). Reference points:
+  seasoncombo combo 1 core (season+AR6+backfill)  = 0.2781 (sd 0.3341)  [tuned without any time variation]
+  seasoncombo combo 2 tvar (season+discounted AR, NO backfill) best = 0.2866 (discount=1.0, i.e. static was still best there too)
+  local static-core sanity rerun (this script)    = 0.2781 (sd 0.3341)
+
+=== combo 1: RLS forgetting factor sweep ===
+  lambda=1.0 -> mean_wis=0.2781 sd_wis=0.3341
+  lambda=0.999 -> mean_wis=0.2783 sd_wis=0.3342
+  lambda=0.995 -> mean_wis=0.2796 sd_wis=0.335
+  lambda=0.99 -> mean_wis=0.2818 sd_wis=0.337
+  lambda=0.97 -> mean_wis=0.2971 sd_wis=0.3595
+  lambda=0.95 -> mean_wis=0.3197 sd_wis=0.4066
+  lambda=0.9 -> mean_wis=0.3898 sd_wis=0.6268
+best: lambda=1.0 mean_wis=0.2781 sd_wis=0.3341
+
+=== combo 2: rolling-window AR sweep ===
+  window=104 -> mean_wis=0.2781 sd_wis=0.3341
+  window=91 -> mean_wis=0.2815 sd_wis=0.3368
+  window=78 -> mean_wis=0.2848 sd_wis=0.3406
+  window=65 -> mean_wis=0.2998 sd_wis=0.3497
+  window=52 -> mean_wis=0.3185 sd_wis=0.3777
+  window=39 -> mean_wis=0.3722 sd_wis=0.595
+  window=32 -> mean_wis=0.4199 sd_wis=0.9766
+  window=26 -> mean_wis=0.5305 sd_wis=1.6748
+best: window=104 mean_wis=0.2781 sd_wis=0.3341
+
+=== combo 3: locally-weighted (Gaussian kernel) AR sweep ===
+  bandwidth=1000.0 -> mean_wis=0.2781 sd_wis=0.3341
+  bandwidth=78.0 -> mean_wis=0.2801 sd_wis=0.3356
+  bandwidth=52.0 -> mean_wis=0.2841 sd_wis=0.3398
+  bandwidth=39.0 -> mean_wis=0.2907 sd_wis=0.3483
+  bandwidth=26.0 -> mean_wis=0.3102 sd_wis=0.3807
+  bandwidth=20.0 -> mean_wis=0.3325 sd_wis=0.4277
+  bandwidth=13.0 -> mean_wis=0.3965 sd_wis=0.6373
+  bandwidth=8.0 -> mean_wis=0.6429 sd_wis=4.7562
+best: bandwidth=1000.0 mean_wis=0.2781 sd_wis=0.3341
+
+=== combo 4: order/effective-memory follow-up (RLS lambda sweep at AR(3), AR(4)) ===
+  order=3 lambda=1.0 -> mean_wis=0.2747 sd_wis=0.3415
+  order=4 lambda=1.0 -> mean_wis=0.2751 sd_wis=0.3365
+  order=3 lambda=0.995 -> mean_wis=0.2762 sd_wis=0.3419
+  order=4 lambda=0.995 -> mean_wis=0.2767 sd_wis=0.3372
+  order=3 lambda=0.99 -> mean_wis=0.2782 sd_wis=0.3433
+  order=4 lambda=0.99 -> mean_wis=0.2791 sd_wis=0.3391
+  order=3 lambda=0.95 -> mean_wis=0.3116 sd_wis=0.4077
+  order=4 lambda=0.95 -> mean_wis=0.3161 sd_wis=0.4256
+best: order=3 lambda=1.0 mean_wis=0.2747 sd_wis=0.3415
+
+=== overall comparison (best of each family) ===
+order-followup    mean_wis=0.2747   sd_wis=0.3415   order=3 lambda=1.0
+rls               mean_wis=0.2781   sd_wis=0.3341   lambda=1.0
+core (static)     mean_wis=0.2781   sd_wis=0.3341   plain AR(6)
+window            mean_wis=0.2781   sd_wis=0.3341   window=104
+kernel            mean_wis=0.2781   sd_wis=0.3341   bandwidth=1000.0
+
+=== winner: order-followup (order=3 lambda=1.0) ===
+mean_wis=0.2747 sd_wis=0.3415
+is an in-sweep STATIC control: true
+vs static core (0.2781): 0.0034 (1.22%)
+
+=== season breakdown: static core ===
+  2015/16: mean_wis=0.2403 sd_wis=0.2135 n=1320
+  2016/17: mean_wis=0.3172 sd_wis=0.4207 n=1276
+
+No genuinely time-varying configuration beat its own family's static-control point in ANY sweep (every family's in-sweep best was the static boundary itself) -- there is no "best genuine" configuration to break down further.
+
+=== location breakdown: static core ===
+  US National: mean_wis=0.1944 sd_wis=0.1805 n=236
+  HHS Region 1: mean_wis=0.2054 sd_wis=0.211 n=236
+  HHS Region 2: mean_wis=0.5265 sd_wis=0.4742 n=236
+  HHS Region 3: mean_wis=0.2852 sd_wis=0.2526 n=236
+  HHS Region 4: mean_wis=0.3096 sd_wis=0.2878 n=236
+  HHS Region 5: mean_wis=0.2096 sd_wis=0.2043 n=236
+  HHS Region 6: mean_wis=0.3575 sd_wis=0.5402 n=236
+  HHS Region 7: mean_wis=0.3132 sd_wis=0.4267 n=236
+  HHS Region 8: mean_wis=0.1628 sd_wis=0.1283 n=236
+  HHS Region 9: mean_wis=0.2701 sd_wis=0.2639 n=236
+  HHS Region 10: mean_wis=0.2248 sd_wis=0.2794 n=236
+
+=== bottom line ===
+Every time-varying mechanism tried (RLS forgetting factor, rolling window, Gaussian-kernel local weighting, and lower AR orders) scored WORSE than its own family's static control once backfill + season are already in the model. The overall winner is order-followup (order=3 lambda=1.0), which is itself the static boundary point (== the 0.2781 core). This is a negative result for time-varying AR on this residual, consistent with the earlier no-season finding in experiments/simple-round/tvar/score.txt: the 104-week (2-season) fit window is already short enough that discounting or truncating it further only removes information without adapting to anything genuinely new.

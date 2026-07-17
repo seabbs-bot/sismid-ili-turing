@@ -1,0 +1,25 @@
+simple-round candidate: conformal (split-conformal calibrated intervals)
+=============================================================================
+Point forecast: unchanged from experiments/simple-round/season/generate.jl (climatology + backfill + AR(6), MODEL_ID "seabbs_bot-season").
+Scored on VALIDATION SEASONS (1, 2) ONLY, natural scale, against target-data/oracle-output.csv (docs/contracts.md experimental integrity).
+
+Reference points:
+  seabbs_bot-season (same point forecast, Gaussian parametric intervals)   = 0.3004
+  seasoncombo-core (different, pooled-seasonal point forecast, plain
+    Gaussian intervals, experiments/simple-round/seasoncombo/score.txt) = 0.2781
+  simple-ar6bf-t10 (plain-AR6 point forecast, tuned Student-t intervals,
+    experiments/simple-round/intervals/score.txt)           = 0.3483
+
+RESULT: seabbs_bot-conformal mean_wis=0.2962 sd_wis=0.3453 n_tasks=2596
+  vs seabbs_bot-season (same point forecast, parametric intervals): 0.0042 (1.39%)
+  vs seasoncombo-core (0.2781, the target to beat): -0.0181 (-6.52%)
+
+Coverage (nominal -> actual):
+  50% -> 0.471
+  90% -> 0.865
+
+For comparison, simp-intervals found the RAW (unscaled) parametric scheme covers only ~41%/78% at 50%/90% nominal, and its own tuned/inflated Student-t scheme (needed to fix that) still lands at 52.5%/89.2% -- over-covered because a symmetric distribution has to be blown up past its natural spread to compensate for the point forecast's own skew. Split-conformal calibration reads the (possibly skewed) error quantiles directly, with no distributional assumption once a horizon's pool has matured.
+
+Design: rolling walk-forward split-conformal, pooled across all 11 locations per horizon (see generate.jl module docstring for the full pending/maturation mechanism). MIN_CALIB=40; fallback (only the first few origins of season 1) is simp-intervals' own Student-t(df=10, scale=1.4) scheme.
+
+Runtime: 17.07s for the full 5-season build (no Monte Carlo simulation anywhere -- point forecast is a deterministic recursion, calibrated quantiles come directly from an empirical or closed-form Student-t quantile function).

@@ -1,0 +1,97 @@
+hierarchical time-varying partial-pooled seasonality -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 132.6s
+
+round-2 stack winner (log+tstudent+pool(w=0.9)): mean_wis=0.2601 sd_wis=0.2587 (experiments/simple-round/round2-stack/score.txt)
+local reproduction: mean_wis=0.2601 sd_wis=0.2587
+
+=== LEVER 1: shape/amplitude partial-pooling grid ===
+  lambda_shape=0.25 amp_shrink=0.0 -> mean_wis=0.259 sd_wis=0.2608
+  lambda_shape=0.5 amp_shrink=0.0 -> mean_wis=0.2595 sd_wis=0.2639
+  lambda_shape=0.25 amp_shrink=0.25 -> mean_wis=0.2596 sd_wis=0.2626
+  lambda_shape=0.5 amp_shrink=0.25 -> mean_wis=0.2601 sd_wis=0.2651
+  lambda_shape=0.0 amp_shrink=0.0 -> mean_wis=0.2601 sd_wis=0.2587
+  lambda_shape=0.25 amp_shrink=0.5 -> mean_wis=0.2604 sd_wis=0.2645
+  lambda_shape=0.0 amp_shrink=0.25 -> mean_wis=0.2604 sd_wis=0.2607
+  lambda_shape=0.5 amp_shrink=0.5 -> mean_wis=0.2607 sd_wis=0.2661
+  lambda_shape=0.0 amp_shrink=0.5 -> mean_wis=0.2612 sd_wis=0.2632
+  lambda_shape=0.25 amp_shrink=0.75 -> mean_wis=0.2613 sd_wis=0.2665
+  lambda_shape=0.5 amp_shrink=0.75 -> mean_wis=0.2614 sd_wis=0.2673
+  lambda_shape=0.75 amp_shrink=0.0 -> mean_wis=0.2614 sd_wis=0.2674
+  lambda_shape=0.75 amp_shrink=0.25 -> mean_wis=0.2618 sd_wis=0.2677
+  lambda_shape=0.5 amp_shrink=1.0 -> mean_wis=0.262 sd_wis=0.2685
+  lambda_shape=0.75 amp_shrink=0.5 -> mean_wis=0.2621 sd_wis=0.2681
+  lambda_shape=0.0 amp_shrink=0.75 -> mean_wis=0.2623 sd_wis=0.2661
+  lambda_shape=0.25 amp_shrink=1.0 -> mean_wis=0.2623 sd_wis=0.2687
+  lambda_shape=0.75 amp_shrink=0.75 -> mean_wis=0.2625 sd_wis=0.2684
+  lambda_shape=0.75 amp_shrink=1.0 -> mean_wis=0.2628 sd_wis=0.2687
+  lambda_shape=0.0 amp_shrink=1.0 -> mean_wis=0.2637 sd_wis=0.2693
+  lambda_shape=1.0 amp_shrink=0.0 -> mean_wis=0.2645 sd_wis=0.2712
+  lambda_shape=1.0 amp_shrink=0.25 -> mean_wis=0.2645 sd_wis=0.2707
+  lambda_shape=1.0 amp_shrink=0.5 -> mean_wis=0.2646 sd_wis=0.2702
+  lambda_shape=1.0 amp_shrink=0.75 -> mean_wis=0.2646 sd_wis=0.2698
+  lambda_shape=1.0 amp_shrink=1.0 -> mean_wis=0.2647 sd_wis=0.2693
+LEVER 1 best: lambda_shape=0.25 amp_shrink=0.0 mean_wis=0.259 (0.45% vs core)
+
+=== LEVER 2: pooled time-varying severity, on the plain core ===
+  lambda_severity=0.05 -> mean_wis=0.26 sd_wis=0.2606 (0.05% vs core)
+  lambda_severity=0.0 -> mean_wis=0.2601 sd_wis=0.2587 (0.0% vs core)
+  lambda_severity=0.1 -> mean_wis=0.2603 sd_wis=0.2628 (-0.06% vs core)
+  lambda_severity=0.15 -> mean_wis=0.261 sd_wis=0.2654 (-0.34% vs core)
+  lambda_severity=0.2 -> mean_wis=0.2621 sd_wis=0.2683 (-0.76% vs core)
+  lambda_severity=0.3 -> mean_wis=0.2655 sd_wis=0.2751 (-2.08% vs core)
+  lambda_severity=0.5 -> mean_wis=0.2769 sd_wis=0.2916 (-6.44% vs core)
+  lambda_severity=0.75 -> mean_wis=0.2987 sd_wis=0.3164 (-14.84% vs core)
+  lambda_severity=1.0 -> mean_wis=0.3277 sd_wis=0.3448 (-26.0% vs core)
+best: lambda_severity=0.05 mean_wis=0.26
+
+=== LEVER 2: pooled time-varying severity, on the LEVER-1 winner ===
+  lambda_severity=0.05 -> mean_wis=0.2588 sd_wis=0.263 (0.05% vs lever1-only)
+  lambda_severity=0.0 -> mean_wis=0.259 sd_wis=0.2608 (0.0% vs lever1-only)
+  lambda_severity=0.1 -> mean_wis=0.2591 sd_wis=0.2655 (-0.07% vs lever1-only)
+  lambda_severity=0.15 -> mean_wis=0.2599 sd_wis=0.2683 (-0.35% vs lever1-only)
+  lambda_severity=0.2 -> mean_wis=0.261 sd_wis=0.2715 (-0.78% vs lever1-only)
+  lambda_severity=0.3 -> mean_wis=0.2644 sd_wis=0.2786 (-2.12% vs lever1-only)
+  lambda_severity=0.5 -> mean_wis=0.2758 sd_wis=0.2956 (-6.5% vs lever1-only)
+  lambda_severity=0.75 -> mean_wis=0.2975 sd_wis=0.3208 (-14.89% vs lever1-only)
+  lambda_severity=1.0 -> mean_wis=0.3263 sd_wis=0.3495 (-26.02% vs lever1-only)
+best: lambda_severity=0.05 mean_wis=0.2588
+
+=== overall comparison ===
+lever1+lever2 (combined)              mean_wis=0.2588   sd_wis=0.263
+lever1-only (shape+amp pooling)       mean_wis=0.259    sd_wis=0.2608
+lever2-only (severity on core)        mean_wis=0.26     sd_wis=0.2606
+core (round2-stack reproduction)      mean_wis=0.2601   sd_wis=0.2587
+
+=== winner: lever1+lever2 (combined) ===
+hyperparameters: lambda_shape=0.25 amp_shrink=0.0 lambda_severity=0.05
+mean_wis=0.2588 sd_wis=0.263
+vs round-2 stack (0.2601): 0.0013 (0.49%)
+
+winner mean WIS by location:
+  HHS Region 8     0.154 (n=236)
+  HHS Region 1     0.1725 (n=236)
+  US National      0.1818 (n=236)
+  HHS Region 5     0.1818 (n=236)
+  HHS Region 9     0.2227 (n=236)
+  HHS Region 10    0.2281 (n=236)
+  HHS Region 3     0.259 (n=236)
+  HHS Region 7     0.2967 (n=236)
+  HHS Region 4     0.301 (n=236)
+  HHS Region 6     0.3414 (n=236)
+  HHS Region 2     0.5081 (n=236)
+
+winner mean WIS by season:
+  season 1: mean_wis=0.2346 sd_wis=0.1879 (n=1320)
+  season 2: mean_wis=0.2839 sd_wis=0.3209 (n=1276)
+
+winner mean WIS by horizon:
+  h=1: 0.1936 (n=649)
+  h=2: 0.2402 (n=649)
+  h=3: 0.2856 (n=649)
+  h=4: 0.316 (n=649)
+
+=== analytic approximation vs. what the joint Turing model would do ===
+This is a plug-in-estimate stand-in for the hierarchical structure the full Bayesian joint model fits natively: LAMBDA_SHAPE/AMP_SHRINK are fixed shrinkage weights chosen by grid search on validation WIS, not posterior variance ratios (a hierarchical prior would let the data set how much each location's shape departs from the pooled one, including different amounts of pooling for well- vs sparsely-observed locations, rather than one grid-searched weight applied uniformly to all 11). Likewise LAMBDA_SEVERITY's pooled year-effect is a point estimate fed forward into simulation, not a jointly-sampled latent variable each location's likelihood informs and is informed by simultaneously with its own AR dynamics and quantified posterior uncertainty on the year-effect itself (this analytic version has no uncertainty on lambda_shape/amp_shrink/lambda_severity at all -- they are point-estimated constants for every split). What the approximation likely still captures: the DIRECTION of the AR(6)-pool_w=0.9 finding (round2-stack/seasonpool2) that pooling toward a shared structure helps once seasonality is already accounted for, and whichever LEVER 2 result appears above.
+
+LEVER 3 (time-varying/recency-weighted pooling weight or climatology) not implemented here -- left as follow-up given severity2's strong prior that season-level scaling on top of an AR(6) that already sees the current trajectory adds little, and the runtime budget of this round.

@@ -30,10 +30,20 @@
 
 include(joinpath(@__DIR__, "run_round.jl"))
 
-# Non-exported helpers `model_v1.jl`..`model_v5.jl` assume are already in
-# scope (see experiments/README.md); bring them in explicitly since
-# `using SismidILITuring` only imports exported names.
-import SismidILITuring: model_dims, backfill_profile, ar_or_diff
+# Non-exported helpers `model_v1.jl`..`model_v5.jl` (and, below,
+# `model_base_tight.jl`) assume are already in scope (see
+# experiments/README.md); bring them in explicitly since `using
+# SismidILITuring` only imports exported names.
+import SismidILITuring: model_dims, backfill_profile, ar_or_diff,
+                         observation_index
+
+# Round 2 candidate base-tight (experiments/round2/base-tight/): same
+# structure as `base_model` (src/model.jl), tightened hyperpriors --
+# see that file's header for the motivation (the prior-tail diagnosis
+# behind this "round1 close" re-screen even including it).
+const R2 = joinpath(@__DIR__, "round2")
+include(joinpath(R2, "base-tight", "model_base_tight.jl"))
+include(joinpath(R2, "base-tight", "project_base_tight.jl"))
 
 const R1 = joinpath(@__DIR__, "round1")
 include(joinpath(R1, "v1-ar-high", "model_v1.jl"))
@@ -52,11 +62,16 @@ using CSV
 using DataFrames
 using Statistics: mean, std
 
-# Eight origin dates spanning pre-peak, rising, peak, and post-peak in
-# both validation seasons (picked from a mean-recent-wILI% scan of
+# Eight origin dates spanning pre-peak/rising/peak/post-peak in both
+# validation seasons (picked from a mean-recent-wILI% scan of
 # `training_splits`, see steer-log.md). Season 1 (2015/16) peaks late
-# (~March); season 2 (2016/17) peaks in Feb. The label is used for the
-# per-time/failure-mode breakdown, not for fitting.
+# (~March); season 2 (2016/17) peaks in Feb. A previous session cut
+# this to 4 dates after repeated whole-round crashes on this shared,
+# contended box made the full 8-date x 7-candidate sweep unable to
+# complete; this "round1 close" pass restores the full 8-date set for
+# a focused, 5-candidate, ndraws=300 re-screen (see CANDIDATES below
+# and reports/round1.md for the honesty note if this again has to be
+# cut down mid-run).
 const ORIGIN_PHASE = Dict(
     Date("2015-11-14") => "pre-peak", Date("2015-12-26") => "rising",
     Date("2016-03-12") => "peak", Date("2016-04-23") => "post-peak",
@@ -73,17 +88,25 @@ const ORIGIN_DATES = sort(collect(keys(ORIGIN_PHASE)))
 
 const PRIMARY_TRANSFORM = :fourthroot
 
+# ndraws=300 (vs this file's historical default of 150) on the five
+# candidates in this "round1 close" re-screen: the previous pass at
+# ndraws=150 produced badly-miscalibrated, high-WIS results (cov50/90
+# far below nominal -- see reports/turing-vs-baseline.md), which reads
+# as under-converged inference rather than a genuinely bad model, so
+# this re-screen buys convergence quality before trusting any ranking.
 const CANDIDATES = Dict(
     "nfidd-base-log" => (name="nfidd-base-log", build_model=base_model,
                           project=base_project, transform=:log),
     "nfidd-base" => (name="nfidd-base", build_model=base_model,
-                      project=base_project),
+                      project=base_project, ndraws=300),
+    "base-tight" => (name="base-tight", build_model=model_base_tight,
+                      project=project_base_tight, ndraws=300),
     "nfidd-ar-high" => (name="nfidd-ar-high", build_model=model_v1,
-                         project=project_v1),
+                         project=project_v1, ndraws=300),
     "nfidd-mvn-season" => (name="nfidd-mvn-season", build_model=model_v2,
-                            project=project_v2),
+                            project=project_v2, ndraws=300),
     "nfidd-diff" => (name="nfidd-diff", build_model=model_v3,
-                      project=project_v3),
+                      project=project_v3, ndraws=300),
     "nfidd-tv-ar" => (name="nfidd-tv-ar", build_model=model_v4,
                        project=project_v4),
     "nfidd-backfill" => (name="nfidd-backfill", build_model=model_v5,

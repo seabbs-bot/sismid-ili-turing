@@ -1,0 +1,70 @@
+sesresid: non-AR residual on the round-1 winner's seasonal + backfill construction -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 147.9s
+
+round-1 winner reference (seasoncombo core, pooled-seasonal + AR(6) + backfill): 0.2781
+sanity rerun here: mean_wis=0.2781 sd_wis=0.3341
+
+=== ses (simple exponential smoothing) alpha sweep ===
+  alpha=0.9 -> mean_wis=0.2824 sd_wis=0.3229
+  alpha=0.7 -> mean_wis=0.2834 sd_wis=0.3384
+  alpha=0.5 -> mean_wis=0.2922 sd_wis=0.3595
+  alpha=0.3 -> mean_wis=0.3138 sd_wis=0.3922
+  alpha=0.2 -> mean_wis=0.3338 sd_wis=0.4176
+  alpha=0.1 -> mean_wis=0.3645 sd_wis=0.4464
+best: alpha=0.9 mean_wis=0.2824 sd_wis=0.3229
+
+=== damped (mean-reverting local level) alpha x phi sweep (best 10 shown) ===
+  alpha=0.9 phi=0.9 -> mean_wis=0.2644 sd_wis=0.3275
+  alpha=0.9 phi=0.95 -> mean_wis=0.2683 sd_wis=0.3189
+  alpha=0.7 phi=0.9 -> mean_wis=0.2687 sd_wis=0.3462
+  alpha=0.7 phi=0.95 -> mean_wis=0.2704 sd_wis=0.3363
+  alpha=0.9 phi=0.8 -> mean_wis=0.2776 sd_wis=0.3596
+  alpha=0.9 phi=0.99 -> mean_wis=0.2787 sd_wis=0.3207
+  alpha=0.5 phi=0.95 -> mean_wis=0.2796 sd_wis=0.3584
+  alpha=0.7 phi=0.99 -> mean_wis=0.2798 sd_wis=0.3366
+  alpha=0.5 phi=0.9 -> mean_wis=0.28 sd_wis=0.3679
+  alpha=0.7 phi=0.8 -> mean_wis=0.2866 sd_wis=0.3766
+best: alpha=0.9 phi=0.9 mean_wis=0.2644 sd_wis=0.3275
+
+=== ewma (batch exponentially-weighted mean) rho sweep ===
+  rho=0.5 -> mean_wis=0.2986 sd_wis=0.3478
+  rho=0.7 -> mean_wis=0.3084 sd_wis=0.3417
+  rho=0.8 -> mean_wis=0.3266 sd_wis=0.3514
+  rho=0.9 -> mean_wis=0.357 sd_wis=0.3687
+  rho=0.95 -> mean_wis=0.3786 sd_wis=0.3756
+  rho=0.99 -> mean_wis=0.403 sd_wis=0.3845
+best: rho=0.5 mean_wis=0.2986 sd_wis=0.3478
+
+=== overall comparison (best of each form) ===
+damped          mean_wis=0.2644   sd_wis=0.3275   alpha=0.9, phi=0.9
+ar6-reference   mean_wis=0.2781   sd_wis=0.3341   round-1 winner, AR(6) residual
+ses             mean_wis=0.2824   sd_wis=0.3229   alpha=0.9
+ewma            mean_wis=0.2986   sd_wis=0.3478   rho=0.5
+
+=== best non-AR form: damped ===
+mean_wis=0.2644 sd_wis=0.3275 (alpha=0.9, phi=0.9)
+vs AR(6)-residual round-1 winner (0.2781): 0.0137 (4.93%)
+
+region/time breakdown, damped vs AR(6)-residual reference (same validation tasks)
+
+  by location (mean WIS)
+    HHS Region 8     ar6=0.1628  damped=0.1531
+    HHS Region 1     ar6=0.2054  damped=0.1807
+    US National      ar6=0.1944  damped=0.188
+    HHS Region 5     ar6=0.2096  damped=0.1955
+    HHS Region 10    ar6=0.2248  damped=0.2302
+    HHS Region 9     ar6=0.2701  damped=0.2343
+    HHS Region 3     ar6=0.2852  damped=0.2716
+    HHS Region 7     ar6=0.3132  damped=0.2917
+    HHS Region 4     ar6=0.3096  damped=0.3155
+    HHS Region 6     ar6=0.3575  damped=0.3663
+    HHS Region 2     ar6=0.5265  damped=0.4814
+
+  by horizon (mean WIS)
+    h=1: ar6=0.2031 -> damped=0.1968
+    h=2: ar6=0.2536 -> damped=0.2445
+    h=3: ar6=0.3104 -> damped=0.292
+    h=4: ar6=0.3453 -> damped=0.3242
+
+CONCLUSION: the non-AR residual model (damped) TIES/BEATS the AR(6) residual on validation WIS once the pooled seasonal term + backfill correction are held fixed.

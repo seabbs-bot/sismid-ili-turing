@@ -1,0 +1,63 @@
+differencing + seasonality + backfill (DSB) -- simple-round front-runner combination
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 60.7s
+
+backfill profile: multiplicative / per-location / median, window 6 (77 (location, delay) entries)
+pooled climatology shape: season_year <= 2014, smoothed over 5 weeks, range -0.1843 to 0.2109
+AR_ORDER_LEVEL (drop-differencing ablation): 12
+best differencing order (sweep over (1, 2, 3, 4, 6)): 2
+
+reference points from other experiments/READMEs (validation seasons 1,2):
+  nfidd-ar6 (plain AR(6))                    = 0.368
+  seabbs_bot-ar6bf (AR(6)+backfill, additive) = 0.359
+  ar-order (AR(12)+backfill)                 = 0.3518
+
+this run's own numbers (identical data/RNG plumbing across all variants, fair comparison):
+differencing-order sweep (full DSB combination):
+order   mean_wis    sd_wis
+2       0.2975      0.3429
+3       0.2991      0.3437
+1       0.3008      0.3428
+4       0.3024      0.3475
+6       0.3085      0.3604
+
+baseline-ar6        mean_wis=0.3684 sd_wis=0.4708 n_tasks=2596
+dsb-full            mean_wis=0.2975 sd_wis=0.3429 n_tasks=2596
+drop-differencing   mean_wis=0.2909 sd_wis=0.3546 n_tasks=2596
+drop-seasonality    mean_wis=0.3845 sd_wis=0.4251 n_tasks=2596
+drop-backfill       mean_wis=0.3083 sd_wis=0.3541 n_tasks=2596
+
+dsb-full vs plain AR(6) baseline: 0.0709 (19.25%)
+dsb-full vs AR(12)+backfill (0.3518): 0.0543 (15.44%)
+
+-- ablation: contribution of each component --
+(positive = removing the component makes WIS worse, i.e. the component helps)
+drop differencing: -0.0066
+drop seasonality:  0.087
+drop backfill:     0.0108
+
+-- breakdown by location (dsb-full vs drop-differencing) --
+HHS Region 2    full=0.4743 dropdiff=0.5093 improvement=0.0349
+HHS Region 5    full=0.2179 dropdiff=0.2385 improvement=0.0206
+HHS Region 7    full=0.3332 dropdiff=0.3506 improvement=0.0174
+HHS Region 1    full=0.202 dropdiff=0.2069 improvement=0.0049
+HHS Region 4    full=0.317 dropdiff=0.3137 improvement=-0.0033
+US National     full=0.2137 dropdiff=0.2089 improvement=-0.0048
+HHS Region 8    full=0.1674 dropdiff=0.1595 improvement=-0.008
+HHS Region 10   full=0.2635 dropdiff=0.2415 improvement=-0.022
+HHS Region 3    full=0.3226 dropdiff=0.293 improvement=-0.0296
+HHS Region 9    full=0.3154 dropdiff=0.2751 improvement=-0.0403
+HHS Region 6    full=0.4452 dropdiff=0.4024 improvement=-0.0428
+
+-- breakdown by season (dsb-full vs drop-differencing) --
+season 2015: full=0.2628 dropdiff=0.2646 improvement=0.0019
+season 2016: full=0.3334 dropdiff=0.318 improvement=-0.0154
+
+-- breakdown by horizon (dsb-full vs drop-differencing) --
+h=1: full=0.2158 dropdiff=0.2115 improvement=-0.0043
+h=2: full=0.2725 dropdiff=0.2669 improvement=-0.0056
+h=3: full=0.3305 dropdiff=0.3244 improvement=-0.0062
+h=4: full=0.3712 dropdiff=0.3607 improvement=-0.0105
+
+does DSB beat the AR(12)+backfill/ar6bf/ar6 front-runners? YES (dsb-full=0.2975 vs ar-order12bf=0.3518)
+overall best of this run's variants: drop-differencing

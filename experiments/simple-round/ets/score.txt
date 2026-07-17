@@ -1,0 +1,57 @@
+simple dynamics sweep -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 56.8s
+
+reference points:
+  plain AR(6), this run, no backfill: mean_wis=0.3684 sd_wis=0.4708
+  nfidd-ar6 (submissions/nfidd-ar6/README.md): 0.368 (sd 0.471)
+  seabbs_bot-ar6bf, AR(6) + backfill (submissions/seabbs_bot-ar6bf/README.md): 0.359 (sd 0.452) -- the number to beat
+
+full sweep (sorted by mean_wis, ascending):
+family    backfill  mean_wis    sd_wis
+ses       true      0.3798      0.4145
+damped    true      0.386       0.4785
+ardiff    true      0.3864      0.4268
+rwdrift   true      0.3892      0.4261
+ses       false     0.3903      0.4398
+ardiff    false     0.3988      0.4541
+rwdrift   false     0.401       0.4538
+damped    false     0.4012      0.5175
+holt      true      0.4278      0.5901
+holt      false     0.4525      0.6396
+
+=== best variant ===
+family=ses backfill=true
+mean_wis=0.3798 sd_wis=0.4145 n_tasks=2596
+vs seabbs_bot-ar6bf (0.359): -0.0208 (-5.8%, positive = best variant wins)
+
+-- breakdown by location (best variant vs plain AR6) --
+HHS Region 2    best=0.5714 ar6=0.6472 improvement=0.0758
+HHS Region 1    best=0.2273 ar6=0.252 improvement=0.0247
+HHS Region 9    best=0.4384 ar6=0.4521 improvement=0.0136
+HHS Region 3    best=0.3909 ar6=0.3919 improvement=0.0009
+HHS Region 4    best=0.4071 ar6=0.3895 improvement=-0.0176
+HHS Region 10   best=0.2856 ar6=0.2643 improvement=-0.0213
+HHS Region 7    best=0.4013 ar6=0.3793 improvement=-0.022
+HHS Region 8    best=0.2169 ar6=0.1934 improvement=-0.0235
+HHS Region 5    best=0.3032 ar6=0.264 improvement=-0.0393
+HHS Region 6    best=0.5918 ar6=0.5368 improvement=-0.055
+US National     best=0.3441 ar6=0.2819 improvement=-0.0622
+
+-- breakdown by origin_date (best variant vs plain AR6) --
+2017-01-21: mean_wis=0.9105 sd_wis=0.8422 n=44
+2017-02-25: mean_wis=0.8677 sd_wis=0.5137 n=44
+2017-02-11: mean_wis=0.8344 sd_wis=0.773 n=44
+2017-02-18: mean_wis=0.7827 sd_wis=0.5916 n=44
+2016-12-10: mean_wis=0.6869 sd_wis=0.5788 n=44
+2017-01-14: mean_wis=0.6843 sd_wis=0.8164 n=44
+2017-01-28: mean_wis=0.6832 sd_wis=0.6092 n=44
+2016-12-17: mean_wis=0.6593 sd_wis=0.5178 n=44
+2017-03-25: mean_wis=0.632 sd_wis=0.5567 n=44
+2017-04-01: mean_wis=0.5779 sd_wis=0.5272 n=44
+
+-- breakdown by horizon (best variant vs plain AR6) --
+h=1: best=0.2331 ar6=0.2452 improvement=0.0121
+h=2: best=0.333 ar6=0.3299 improvement=-0.0031
+h=3: best=0.4334 ar6=0.4167 improvement=-0.0168
+h=4: best=0.5198 ar6=0.4818 improvement=-0.038

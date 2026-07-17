@@ -1,0 +1,172 @@
+simple-round / season (SEASONALITY family)
+Scored on VALIDATION seasons only (1, 2), natural scale, per
+docs/contracts.md experimental integrity. Baselines quoted from the
+same sweep run (reproduced exactly by this family's own baseline
+configs, not taken on faith):
+  ar6-baseline (nfidd-ar6, no seasonality, no backfill): 0.3684
+  ar6-backfill (seabbs_bot-ar6bf, backfill only):        0.3590
+
+Forms tried (AR(6), fourthroot scale, OLS/ridge fit, 1000-path
+Gaussian-innovation simulation -- identical to nfidd-ar6 otherwise),
+ranked by mean validation WIS:
+
+model_id                mean_wis  sd_wis
+climatology-backfill    0.3004    0.3890   <- BEST (this family's pick)
+climatology             0.3061    0.3891
+fourier1-backfill       0.3142    0.4104
+fourier1                0.3214    0.4179
+climatology-fourier1    0.3299    0.4206   (combining both seasonal
+                                            forms hurts -- redundant,
+                                            re-overfits)
+fourier3-ridge30        0.3521    0.4449
+fourier3-ridge10        0.3550    0.4439
+climatology-ridge5      0.3564    0.4534   (shrinking clim coefficient
+                                            toward 0 just pulls back
+                                            toward baseline -- the
+                                            unridged climatology term
+                                            is already well-behaved)
+fourier3-ridge100       0.3585    0.4547
+ar6-backfill            0.3590    0.4521
+fourier2                0.3678    0.4529
+ar6-baseline            0.3684    0.4708
+
+Forms tried:
+  - Fourier(1): sin/cos at the annual harmonic, OLS alongside the
+    AR(6) lags. Helps (0.3214 vs 0.3684) -- fewer harmonics than the
+    naive Fourier(3) that hurt (0.412) is enough to avoid overfitting
+    the ~2-season AR training window.
+  - Fourier(2): two harmonics, OLS. No better than baseline (0.3678)
+    -- already too many free seasonal parameters for ~2 seasons of
+    data.
+  - Fourier(3), ridge-penalised (lambda in {10, 30, 100}, penalty on
+    the 6 harmonic coefficients only, AR lags unpenalised): best at
+    lambda=30 (0.3521), still worse than Fourier(1) or climatology.
+    Ridge tempers the overfit but does not fix the deeper problem --
+    three harmonics fit to ~2 seasons chase those seasons' particular
+    peak timing, not the recurring annual shape.
+  - Climatology: single extra regressor per location/split, a
+    smoothed (5-week circular moving average) median-by-week-of-season
+    curve built from the FULL historical series
+    (data/flu_data_hhs.csv), using only weeks strictly before that
+    split's own forecast origin (no test-season or future leakage).
+    Enters the AR(6) regression as one more OLS coefficient, free to
+    shrink to ~0 itself if uninformative. Best single-term seasonal
+    form (0.3061 alone).
+  - Climatology + ridge (lambda=5) on that one coefficient: worse
+    (0.3564) -- the climatology term is already regularised by its
+    construction (robust median + smoothing over the FULL history,
+    not the 2-season AR window), so an extra ridge penalty just
+    shrinks it back toward the unhelpful baseline.
+  - Climatology + Fourier(1) combined: worse than either alone
+    (0.3299) -- two competing seasonal representations re-overfit
+    the same signal, echoing the original naive-Fourier(3) failure
+    mode.
+  - Climatology + backfill correction (seabbs_bot-ar6bf's profile):
+    best overall, 0.3004, a further improvement over climatology
+    alone -- the two corrections are near-orthogonal (backfill fixes
+    recent-week vintage noise; climatology adds calendar-shape
+    information) and stack cleanly.
+
+Region/time breakdown, climatology-backfill vs ar6-backfill
+(same validation tasks; climatology-backfill wins in 10/11 locations
+and at every horizon, not just on average -- this is not a case of a
+good mean average hiding a few locations propping it up):
+
+  by location (mean WIS)         ar6-backfill   climatology-backfill
+    HHS Region 1                    0.2509         0.1513  (best gain)
+    HHS Region 8                    0.1934         0.1806
+    HHS Region 5                    0.2633         0.2175
+    HHS Region 10                   0.2626         0.2278
+    US National                     0.2815         0.2362
+    HHS Region 9                    0.4261         0.2684  (best gain)
+    HHS Region 7                    0.3697         0.3225
+    HHS Region 3                    0.3866         0.3419
+    HHS Region 4                    0.3906         0.3512
+    HHS Region 6                    0.5350         0.4249
+    HHS Region 2                    0.5897         0.5824  (only loc
+                                                    climatology-backfill
+                                                    doesn't clearly win)
+
+  by horizon (mean WIS)
+    h=1: 0.2310 -> 0.2132
+    h=2: 0.3198 -> 0.2784
+    h=3: 0.4090 -> 0.3372
+    h=4: 0.4764 -> 0.3730   (gain grows with horizon, as expected for
+                             a term carrying calendar-shape information
+                             an AR(6) alone can't see that far out)
+
+  by validation season (mean WIS)
+    2015/16: 0.2762 -> 0.2544
+    2016/17: 0.4447 -> 0.3481
+
+CONCLUSION: regularised seasonality DOES help here, clearly and
+robustly (0.3004 vs 0.359 AR6+backfill / 0.368 AR6 alone, ~16-19%
+mean-WIS improvement, consistent across locations, horizons, and both
+validation seasons) -- but only in the "climatology" form (smoothed
+circular median from the FULL historical series, entering as a single
+per-location regression coefficient), not as free Fourier harmonics
+fit to the ~2-season AR window, which either fail to help (Fourier(2))
+or actively overfit (naive Fourier(3): 0.412) even after ridge
+shrinkage tempers but does not fix them. The regularisation that
+matters is in how the seasonal signal is ESTIMATED (borrow strength
+across all of history, smooth it, then let a single OLS coefficient
+decide how much to use), not merely in penalising free coefficients
+after the fact.
+
+BEST: climatology + backfill correction, experiments/simple-round/
+season/generate.jl (MODEL_ID "seabbs_bot-season"). Validated
+end-to-end: `julia --project=<repo> generate.jl` reproduces
+mean_wis=0.3004, sd_wis=0.3890, n_tasks=2596 exactly. Also confirmed
+capable of emitting the FULL 5-season hub submission (validation +
+test, allow_test_season=true for 3-5, same pattern as
+seabbs_bot-ar6bf) -- verified it writes correct model-output/ CSVs and
+model-metadata/*.yml for all 146 origin dates in ~27s.
+
+ADDENDUM: pooled (cross-location) seasonal shape, added on request
+------------------------------------------------------------------
+Follow-up ask: instead of a per-location climatology curve (each
+location's shape estimated only from its own history), pool ONE
+shared week-of-season shape across all 11 locations + history, with a
+small per-location amplitude scaling -- the more principled way to
+add seasonality without overfitting the ~2-season training window,
+since a shared shape borrows strength across locations as well as
+across historical seasons.
+
+Implementation: for each location, first remove that location's own
+level (subtract its overall median wILI on the fourthroot scale) so
+absolute-scale differences across locations (e.g. Region 6 ~8x Region
+8's mean wILI, docs/eda/03-seasonality.md) don't bias the pooled
+shape, then bin/smooth that deviation curve by week-of-season exactly
+as the per-location climatology (5-week circular moving average of
+the circular-bin median). Average the 11 locations' smoothed
+deviation curves into ONE shared curve per split (still capped at
+that split's own forecast origin, no leakage). Each location then
+gets its own free OLS amplitude coefficient on this one shared curve,
+fit alongside the AR(6) lags exactly like the per-location
+climatology's own coefficient -- so the "small per-location amplitude
+scaling" falls out of the same regression, no extra machinery.
+
+Result (same validation-only sweep):
+  pooled-clim               0.3090   sd 0.3976
+  pooled-clim + backfill    0.3023   sd 0.3945
+  pooled-clim + ridge(5) on the amplitude coefficient: 0.3571 (worse,
+    same pattern as the per-location climatology -- it's already
+    regularised by construction, extra shrinkage just pulls back
+    toward baseline)
+
+CONCLUSION on pooling: YES, the pooled/shared seasonal shape also
+clearly beats both baselines (0.359 AR6+backfill, 0.368 AR6 alone),
+confirming seasonality helps via either route. It is very close to,
+but not quite as good as, the per-location climatology already picked
+(0.3023 vs 0.3004 with backfill; 0.3090 vs 0.3061 without) -- with 17
+years of location-specific history available (data/flu_data_hhs.csv
+starts 2003), there is enough data to estimate each location's own
+week-of-season shape directly without needing to borrow across
+locations, and per-location peak timing genuinely differs (SD 5.2-7.9
+weeks across locations, docs/eda/03-seasonality.md) so a shared shape
+necessarily blurs that. The per-location climatology + backfill
+(0.3004) remains this family's pick and is what generate.jl
+implements; the pooled form is recorded here as a validated, working
+alternative (same regularisation principle, marginally more
+conservative) if a lower-per-location-overfitting-risk choice is
+preferred for the final ensemble/selection.

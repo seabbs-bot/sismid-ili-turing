@@ -1,0 +1,50 @@
+round 3 -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 71.5s
+
+round-2 stack reference (log+tstudent+pool(w=0.9)): mean_wis=0.2601 sd_wis=0.2587 (experiments/simple-round/round2-stack/score.txt)
+sesresid reference (fourthroot core, damped(0.9,0.9), no tstudent/pooling): mean_wis=0.2644 (experiments/simple-round/sesresid/score.txt)
+
+=== sanity check: ar-stack reproduction ===
+  ar-stack (log+tstudent+pool(w=0.9))                     mean_wis=0.2601 sd_wis=0.2587 cov50=0.565 cov90=0.943
+
+=== section 1: damped-level alpha x phi re-grid (LOG scale, Gaussian innovations) ===
+  alpha=0.9 phi=0.9 -> mean_wis=0.258 sd_wis=0.2929
+  alpha=0.95 phi=0.9 -> mean_wis=0.2582 sd_wis=0.2889
+  alpha=0.8 phi=0.9 -> mean_wis=0.2587 sd_wis=0.3015
+  alpha=0.8 phi=0.95 -> mean_wis=0.2599 sd_wis=0.295
+  alpha=0.9 phi=0.95 -> mean_wis=0.2607 sd_wis=0.2872
+  alpha=0.7 phi=0.95 -> mean_wis=0.2609 sd_wis=0.3039
+  alpha=0.7 phi=0.9 -> mean_wis=0.2612 sd_wis=0.311
+  alpha=0.95 phi=0.95 -> mean_wis=0.2617 sd_wis=0.2836
+  alpha=0.8 phi=0.99 -> mean_wis=0.2682 sd_wis=0.2975
+  alpha=0.7 phi=0.99 -> mean_wis=0.2684 sd_wis=0.3058
+  alpha=0.9 phi=0.99 -> mean_wis=0.27 sd_wis=0.2907
+  alpha=0.95 phi=0.99 -> mean_wis=0.2715 sd_wis=0.2877
+  alpha=0.95 phi=0.8 -> mean_wis=0.2716 sd_wis=0.3164
+  alpha=0.9 phi=0.8 -> mean_wis=0.273 sd_wis=0.3207
+  alpha=0.8 phi=0.8 -> mean_wis=0.2768 sd_wis=0.3294
+  alpha=0.7 phi=0.8 -> mean_wis=0.2818 sd_wis=0.3382
+best: alpha=0.9 phi=0.9 mean_wis=0.258
+
+=== section 2: Student-t on the damped level ===
+  damped-gaussian (log+damped(0.9,0.9), no tstudent)                mean_wis=0.258 sd_wis=0.2929 cov50=0.466 cov90=0.849
+  damped-stack (log+tstudent+damped(0.9,0.9))                       mean_wis=0.26 sd_wis=0.2566 cov50=0.591 cov90=0.947
+Student-t delta on damped level: -0.002 (-0.78%)
+
+=== section 3: ensembles ===
+  ensemble-mean(ar-stack, damped-stack)                   mean_wis=0.2585 sd_wis=0.2557 cov50=0.586 cov90=0.947
+  ensemble-median(ar-stack, damped-stack)                 mean_wis=0.2585 sd_wis=0.2557 cov50=0.586 cov90=0.947
+
+=== ranked (all candidates) ===
+  damped-gaussian (log+damped(0.9,0.9), no tstudent)      mean_wis=0.258 sd_wis=0.2929 cov50=0.466 cov90=0.849
+  ensemble-mean(ar-stack, damped-stack)                   mean_wis=0.2585 sd_wis=0.2557 cov50=0.586 cov90=0.947
+  ensemble-median(ar-stack, damped-stack)                 mean_wis=0.2585 sd_wis=0.2557 cov50=0.586 cov90=0.947
+  damped-stack (log+tstudent+damped(0.9,0.9))             mean_wis=0.26 sd_wis=0.2566 cov50=0.591 cov90=0.947
+  ar-stack (log+tstudent+pool(w=0.9))                     mean_wis=0.2601 sd_wis=0.2587 cov50=0.565 cov90=0.943
+
+=== winner: damped-gaussian (log+damped(0.9,0.9), no tstudent) ===
+mean_wis=0.258 sd_wis=0.2929 cov50=0.466 cov90=0.849
+vs round-2 stack (0.2601): 0.0021 (0.82%)
+
+CONCLUSION: damped-gaussian (log+damped(0.9,0.9), no tstudent) BEATS the round-2 ar-stack (0.2601) on validation WIS -- see the delta above. This is the round-3 candidate.

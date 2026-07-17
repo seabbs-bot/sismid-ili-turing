@@ -1,0 +1,162 @@
+simple-round / severity2 (SEASON-SEVERITY family, round-2 iteration on
+the round-1 winner)
+Scored on VALIDATION seasons only (1, 2), natural scale, per
+docs/contracts.md experimental integrity.
+
+Starting point: `season/generate.jl` (climatology + backfill,
+MODEL_ID "seabbs_bot-season"), 0.3004 mean validation WIS / 0.2781 on
+the full simple-round leaderboard -- the round-1 winner. This family
+tests one addition on top of that model, motivated by
+docs/eda/04-cross-location.md's "shared season-severity effect"
+(off-diagonal seasonal-amplitude correlation mean 0.68 across the 11
+locations -- a whole season tends to run uniformly severe or mild, not
+independently per location): estimate how severe the CURRENT season
+is running, from its trajectory so far (observed level vs. that
+location's own climatology, over the in-season weeks already seen up
+to the forecast origin), POOL that estimate across all 11 locations,
+and scale the climatology term's contribution to the FORWARD forecast
+by the pooled factor. The fitted AR(6)+climatology regression itself
+is untouched; only the future climatology values fed into the forward
+simulation are adjusted, via a shrinkage parameter `LAMBDA_SEVERITY`
+(0 = no adjustment, exactly reproduces climatology-backfill; 1 = full
+raw pooled estimate).
+
+baseline (climatology + backfill, LAMBDA_SEVERITY=0): 0.3004 (sd 0.389)
+
+=== Sweep 1: form x lambda x cross-location pooling stat ===
+whole-season-to-date mean per-location estimate, MIN_SEVERITY_WEEKS=3,
+MIN_CLIM_LEVEL=0.15 (fourthroot scale)
+
+form            lambda  pooled  mean_wis  sd_wis
+multiplicative  0.25    mean    0.3010    0.3866
+multiplicative  0.25    median  0.3010    0.3868
+additive        0.25    median  0.3012    0.3867
+additive        0.25    mean    0.3015    0.3870
+multiplicative  0.50    median  0.3024    0.3851
+multiplicative  0.50    mean    0.3025    0.3847
+additive        0.50    median  0.3029    0.3849
+additive        0.50    mean    0.3036    0.3855
+multiplicative  0.75    median  0.3048    0.3840
+multiplicative  0.75    mean    0.3049    0.3835
+additive        0.75    median  0.3057    0.3837
+additive        0.75    mean    0.3068    0.3845
+multiplicative  1.00    median  0.3080    0.3836
+multiplicative  1.00    mean    0.3083    0.3830
+additive        1.00    median  0.3094    0.3831
+additive        1.00    mean    0.3109    0.3841
+
+Every one of these 16 combinations (2 forms x 4 lambdas x 2 pooling
+stats) is WORSE than the lambda=0 baseline (0.3004), and within each
+(form, pooling) pair, mean_wis increases MONOTONICALLY with lambda --
+more severity adjustment is uniformly worse, not just on average at
+one setting. sd_wis falls as lambda rises (the adjustment does make
+forecasts more consistent across tasks), but that is bought entirely
+at the cost of mean accuracy, the wrong trade for a scoring rule that
+selects on mean WIS.
+
+=== Sweep 2: fine lambda scan near 0 ===
+(multiplicative, mean pooling, whole-season-to-date mean estimate)
+
+lambda=0.05 -> mean_wis=0.3005
+lambda=0.10 -> mean_wis=0.3005
+lambda=0.15 -> mean_wis=0.3006
+lambda=0.20 -> mean_wis=0.3008
+
+Confirms the degradation starts immediately at lambda > 0 -- there is
+no small positive lambda that beats the baseline; lambda=0 is the
+optimum of a monotonically-increasing curve, not a local minimum
+missed by the coarser grid above.
+
+=== Sweep 3: recency-windowed estimation ===
+(multiplicative, median pooling; restricting the per-location estimate
+to the most recent N in-season weeks instead of the whole season to
+date, to test whether a more "local" severity read does better)
+
+recent=6 weeks: lambda=0.25 -> 0.3021 | 0.50 -> 0.3099 |
+                0.75 -> 0.3236 | 1.00 -> 0.3428
+recent=4 weeks: lambda=0.25 -> 0.3023 | 0.50 -> 0.3116 |
+                0.75 -> 0.3277 | 1.00 -> 0.3503
+
+Narrower recency windows are WORSE at every matched lambda than the
+whole-season-to-date estimate above (e.g. lambda=1.0: 0.343-0.350 vs.
+0.308) -- fewer weeks of support makes the pooled estimate noisier,
+not more locally relevant, and the degradation is steeper.
+
+=== Sweep 4: median-centered per-location estimate ===
+(multiplicative, median pooling; per-location estimate is the MEDIAN
+rather than mean of in-season ratios, in case the mean is sensitive to
+a single peak week)
+
+lambda=0.25 -> 0.3012 | 0.50 -> 0.3024 | 0.75 -> 0.3043 | 1.00 -> 0.3067
+
+Same story: monotonically worse than the lambda=0 baseline, though
+marginally less bad than the mean-centered version at matched lambda
+-- median-centering does not rescue the approach, just softens the
+degradation slightly.
+
+=== Breakdown by horizon and location (multiplicative, lambda=0.5,
+median pooling, vs. lambda=0 baseline) ===
+
+  by horizon (mean WIS)          base      severity(0.5)
+    h=1                          0.2132    0.2141
+    h=2                          0.2784    0.2802
+    h=3                          0.3372    0.3396
+    h=4                          0.3730    0.3759
+
+  Worse at EVERY horizon, including h=4 -- this contradicts the
+  motivating hypothesis that a season-level adjustment should help
+  MORE at longer lead times (where the AR(6) lags alone have less
+  direct information about the current trajectory); if anything the
+  gap widens slightly with horizon.
+
+  by location (mean WIS, selected)  base      severity(0.5)
+    HHS Region 5                    0.2175    0.2141  (helps)
+    HHS Region 6                    0.4249    0.4109  (helps)
+    US National                     0.2362    0.2348  (helps)
+    HHS Region 3                    0.3419    0.3512  (hurts)
+    HHS Region 9                    0.2684    0.2827  (hurts)
+    HHS Region 8                    0.1806    0.1869  (hurts)
+
+  A genuinely mixed picture location-by-location (helps in ~4-5 of 11,
+  hurts in the rest) -- not a case of one or two locations dragging
+  down an otherwise-clean win, and the net is negative in every
+  configuration tested above.
+
+  by season (mean WIS)            base      severity(0.5)
+    2015/16                       0.2544    0.2493  (helps)
+    2016/17                       0.3481    0.3574  (hurts)
+
+CONCLUSION: shared season-severity scaling does NOT help here. Across
+every axis varied -- form (multiplicative/additive), cross-location
+pooling statistic (mean/median), per-location estimate centering
+(mean/median), and estimation window (whole season-to-date / last 6
+weeks / last 4 weeks) -- adding any nonzero amount of severity scaling
+on top of climatology-backfill made validation WIS worse,
+monotonically in the adjustment strength, with no small-lambda sweet
+spot (the fine scan near 0 confirms lambda=0 is a true minimum, not an
+artifact of a coarse grid). The likely mechanism: by the time enough
+in-season weeks exist to estimate a severity factor at all
+(MIN_SEVERITY_WEEKS=3), the AR(6) lags already see the current
+season's actual recent values directly and have adapted to it running
+hot or cold; the pooled severity term mostly duplicates information
+the AR component already has, and what it adds beyond that is
+estimation noise -- worse, not better, with narrower/more "local"
+recency windows, which is the opposite of what a genuine signal would
+show.
+
+This is a clean negative result, not a tuning failure to iterate
+further on: the cross-location amplitude correlation from
+docs/eda/04-cross-location.md is real (mean r=0.68), but the AR(6)+
+climatology model already captures most of what that correlation would
+add, because its lagged terms see each location's own current-season
+trajectory directly every forecast origin.
+
+BEST: LAMBDA_SEVERITY = 0.0 (severity scaling disabled), i.e.
+identical to plain climatology + backfill (`season/generate.jl`,
+"seabbs_bot-season"). experiments/simple-round/severity2/generate.jl
+ships the full severity apparatus (for reproducibility of this
+negative result -- flip LAMBDA_SEVERITY above 0 to see the
+degradation directly) but with it set to its empirically-best value of
+0. Validated end-to-end: `julia --project=<repo> generate.jl`
+reproduces mean_wis=0.3004, sd_wis=0.389, n_tasks=2596 exactly, byte-
+for-byte the same model as `seabbs_bot-season`.

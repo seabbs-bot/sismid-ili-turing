@@ -1,0 +1,73 @@
+cluster-pooled seasonality -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 45.2s
+
+reference points:
+  nfidd-ar6 (plain AR6, no season)             = 0.368 (sd 0.471)
+  seabbs_bot-ar6bf (AR6 + backfill)             = 0.359 (sd 0.452)
+  season/ climatology-backfill (per-location)  = 0.3004 (sd 0.389) -- loose analogue of K=11 below (different fitting procedure, see file header)
+  seasoncombo core (ONE pooled shape + AR6+bf,
+    NO per-location amplitude term)   = 0.2781 (sd 0.334)
+  seasoncombo combo 5 (amp+backfill, unshrunk;
+    same per-location amplitude term as here)   = 0.2748 (sd 0.320) -- closest analogue of K=1 below
+
+clustering: agglomerative (average-linkage) on 1-correlation distance between each location's own smoothed week-of-season climatology curve (own-mean centred, fit from season_year <= 2016 only, no test-season leakage). Distinct from the per-cluster PROFILE fit into the forecast model, which is the pooled climatology re-estimated across each cluster's member locations, not this per-location curve.
+
+=== K sweep (K=1 .. 11, each with AR(6) + backfill unchanged) ===
+K=11 mean_wis=0.2709   sd_wis=0.3169    <- BEST
+K=10 mean_wis=0.2716   sd_wis=0.317   
+K=9  mean_wis=0.2717   sd_wis=0.3167  
+K=8  mean_wis=0.2721   sd_wis=0.3139  
+K=7  mean_wis=0.2723   sd_wis=0.3146  
+K=3  mean_wis=0.2732   sd_wis=0.3135  
+K=6  mean_wis=0.2732   sd_wis=0.316   
+K=5  mean_wis=0.274    sd_wis=0.3168  
+K=4  mean_wis=0.274    sd_wis=0.3173  
+K=2  mean_wis=0.2747   sd_wis=0.3181  
+K=1  mean_wis=0.2748   sd_wis=0.3198  
+
+=== best: K=11 ===
+mean_wis=0.2709 sd_wis=0.3169 n_tasks=2596
+vs seasoncombo core (0.2781): 0.0072 (2.58%)
+vs seasoncombo combo 5 / amp+backfill (0.2748, the closer analogue -- see NOTE above): 0.0039 (1.41%)
+
+cluster membership at K=11:
+  {US National}  {HHS Region 1}  {HHS Region 2}  {HHS Region 3}  {HHS Region 4}  {HHS Region 5}  {HHS Region 6}  {HHS Region 7}  {HHS Region 8}  {HHS Region 9}  {HHS Region 10}
+
+-- breakdown by location (K=11) --
+  HHS Region 8     mean_wis=0.1594 sd_wis=0.1221
+  HHS Region 1     mean_wis=0.1692 sd_wis=0.1698
+  HHS Region 5     mean_wis=0.1954 sd_wis=0.1867
+  US National      mean_wis=0.1972 sd_wis=0.1788
+  HHS Region 10    mean_wis=0.2143 sd_wis=0.2531
+  HHS Region 9     mean_wis=0.2573 sd_wis=0.3044
+  HHS Region 3     mean_wis=0.2766 sd_wis=0.2832
+  HHS Region 7     mean_wis=0.2887 sd_wis=0.3204
+  HHS Region 4     mean_wis=0.3208 sd_wis=0.2907
+  HHS Region 6     mean_wis=0.3553 sd_wis=0.4651
+  HHS Region 2     mean_wis=0.5459 sd_wis=0.4847
+
+-- breakdown by horizon (K=11) --
+  h=1 mean_wis=0.1979 sd_wis=0.2278
+  h=2 mean_wis=0.2477 sd_wis=0.2922
+  h=3 mean_wis=0.3023 sd_wis=0.3458
+  h=4 mean_wis=0.3359 sd_wis=0.3665
+
+-- breakdown by validation season (K=11) --
+  season 2015: mean_wis=0.2425 sd_wis=0.2305
+  season 2016: mean_wis=0.3004 sd_wis=0.3844
+
+cluster membership at every K:
+  K=11 {US National}  {HHS Region 1}  {HHS Region 2}  {HHS Region 3}  {HHS Region 4}  {HHS Region 5}  {HHS Region 6}  {HHS Region 7}  {HHS Region 8}  {HHS Region 9}  {HHS Region 10}
+  K=10 {HHS Region 1}  {HHS Region 2}  {HHS Region 4}  {HHS Region 5}  {HHS Region 6}  {HHS Region 7}  {HHS Region 8}  {HHS Region 9}  {HHS Region 10}  {US National, HHS Region 3}
+  K=9  {HHS Region 1}  {HHS Region 2}  {HHS Region 4}  {HHS Region 6}  {HHS Region 7}  {HHS Region 8}  {HHS Region 9}  {HHS Region 10}  {HHS Region 5, US National, HHS Region 3}
+  K=8  {HHS Region 1}  {HHS Region 2}  {HHS Region 7}  {HHS Region 8}  {HHS Region 9}  {HHS Region 10}  {HHS Region 5, US National, HHS Region 3}  {HHS Region 4, HHS Region 6}
+  K=7  {HHS Region 2}  {HHS Region 7}  {HHS Region 9}  {HHS Region 10}  {HHS Region 5, US National, HHS Region 3}  {HHS Region 4, HHS Region 6}  {HHS Region 1, HHS Region 8}
+  K=3  {HHS Region 10, HHS Region 1, HHS Region 8}  {HHS Region 7, HHS Region 5, US National, HHS Region 3, HHS Region 4, HHS Region 6}  {HHS Region 2, HHS Region 9}
+  K=6  {HHS Region 2}  {HHS Region 7}  {HHS Region 9}  {HHS Region 10}  {HHS Region 1, HHS Region 8}  {HHS Region 5, US National, HHS Region 3, HHS Region 4, HHS Region 6}
+  K=5  {HHS Region 2}  {HHS Region 7}  {HHS Region 9}  {HHS Region 5, US National, HHS Region 3, HHS Region 4, HHS Region 6}  {HHS Region 10, HHS Region 1, HHS Region 8}
+  K=4  {HHS Region 2}  {HHS Region 9}  {HHS Region 10, HHS Region 1, HHS Region 8}  {HHS Region 7, HHS Region 5, US National, HHS Region 3, HHS Region 4, HHS Region 6}
+  K=2  {HHS Region 2, HHS Region 9}  {HHS Region 10, HHS Region 1, HHS Region 8, HHS Region 7, HHS Region 5, US National, HHS Region 3, HHS Region 4, HHS Region 6}
+  K=1  {HHS Region 2, HHS Region 9, HHS Region 10, HHS Region 1, HHS Region 8, HHS Region 7, HHS Region 5, US National, HHS Region 3, HHS Region 4, HHS Region 6}
+
+INTERPRETATION: mean WIS falls close to monotonically as K increases from 1 to 11 (0.2748 -> 0.2709, a ~1.4% spread, with a couple of local ties at K=3/6 rather than a genuine reversal) -- NOT the middle-K sweet spot the cluster-pooling hypothesis expected. With a smoothed, full-13-season-history climatology curve (not a few free Fourier/OLS parameters fit to the ~2-season AR window), per-location granularity does not re-introduce the overfitting that sank the naive per-location Fourier fit (0.412) -- the shape itself is already well-regularised by construction, so there is little for cluster pooling to add on top. The clustering DOES confirm HHS Region 9's distinctness qualitatively: it is one of the first two locations to split off the main pooled group (K=2: {Region 2, Region 9} vs the other 9; it does not become its own singleton cluster until K=4), pairing with Region 2 rather than standing alone -- but this qualitative signal does not translate into a WIS advantage over simply giving every location its own shape (K=11). All 11 K values beat both reference points (0.2781 core, 0.2748 combo 5); the practical takeaway is that cluster pooling is a defensible, slightly more conservative middle ground if fewer effective parameters is valued for its own sake, but K=11 (full per-location shape + unshrunk per-location amplitude, still with the shared AR(6) + backfill machinery) is this experiment's best scoring choice on validation.

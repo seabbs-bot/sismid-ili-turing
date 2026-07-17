@@ -1,0 +1,82 @@
+season-adaptive severity sweep -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 72.1s
+
+reference points from other experiments/READMEs:
+  nfidd-ar6 (plain AR6)                    = 0.368
+  seabbs_bot-ar6bf (AR6+backfill)          = 0.359
+  ar-order-12bf (AR12+backfill, currently
+    designated best-overall submission)   = 0.3518
+  season family (per-loc climatology+backfill)
+                                           = 0.3004
+  seasonpool (pooled Fourier shape+backfill)
+                                           = 0.3049
+  seasoncombo core (season_year<=2016 pooled
+    shape+AR6+backfill)                    = 0.2781
+    NOTE: that shape sees each validation season's
+    own future weeks (see this file's header) --
+    not used as this family's base, see
+    adaptive-base below instead.
+
+this run's own numbers (identical data/RNG plumbing, fair comparison):
+adaptive-base     mean_wis=0.2976 sd_wis=0.3798 n_tasks=2596
+
+=== sweep 1: amplitude adaptation (var_gamma=0) ===
+  amp_shrink=0.0 -> mean_wis=0.2976 sd_wis=0.3798
+  amp_shrink=0.25 -> mean_wis=0.3001 sd_wis=0.3838
+  amp_shrink=0.5 -> mean_wis=0.3182 sd_wis=0.3993
+  amp_shrink=0.75 -> mean_wis=0.3494 sd_wis=0.4233
+  amp_shrink=1.0 -> mean_wis=0.3907 sd_wis=0.4537
+  amp_shrink=1.25 -> mean_wis=0.4389 sd_wis=0.4886
+  amp_shrink=1.5 -> mean_wis=0.4916 sd_wis=0.5264
+best: amp_shrink=0.0 mean_wis=0.2976 sd_wis=0.3798
+
+=== sweep 2: variance adaptation on top of amp_shrink=0.0 ===
+  var_gamma=-0.25 -> mean_wis=0.2956 sd_wis=0.3712
+  var_gamma=-0.2 -> mean_wis=0.2956 sd_wis=0.3728
+  var_gamma=-0.3 -> mean_wis=0.2958 sd_wis=0.3696
+  var_gamma=-0.1 -> mean_wis=0.2963 sd_wis=0.3763
+  var_gamma=-0.4 -> mean_wis=0.297 sd_wis=0.3665
+  var_gamma=0.0 -> mean_wis=0.2976 sd_wis=0.3798
+  var_gamma=-0.5 -> mean_wis=0.2992 sd_wis=0.3638
+  var_gamma=0.25 -> mean_wis=0.3034 sd_wis=0.3884
+  var_gamma=0.5 -> mean_wis=0.3111 sd_wis=0.3962
+  var_gamma=0.75 -> mean_wis=0.3193 sd_wis=0.4026
+  var_gamma=1.0 -> mean_wis=0.3274 sd_wis=0.4075
+best: var_gamma=-0.25 mean_wis=0.2956 sd_wis=0.3712
+
+=== winner: adaptive-full (amp_shrink=0.0, var_gamma=-0.25) ===
+mean_wis=0.2956 sd_wis=0.3712 n_tasks=2596
+vs adaptive-base (this family's own static reference): 0.002 (0.68%)
+vs ar-order-12bf reference (0.3518): 0.0562 (15.97%)
+
+-- breakdown by location (adaptive-full vs adaptive-base) --
+HHS Region 2    full=0.5126 base=0.5216 improvement=0.009
+HHS Region 9    full=0.2939 base=0.3012 improvement=0.0073
+HHS Region 10   full=0.2195 base=0.2244 improvement=0.0048
+US National     full=0.2274 base=0.2319 improvement=0.0044
+HHS Region 5    full=0.2459 base=0.2488 improvement=0.0029
+HHS Region 4    full=0.3399 base=0.3415 improvement=0.0016
+HHS Region 8    full=0.1704 base=0.1714 improvement=0.001
+HHS Region 7    full=0.3247 base=0.3244 improvement=-0.0004
+HHS Region 3    full=0.3098 base=0.3092 improvement=-0.0006
+HHS Region 1    full=0.2105 base=0.209 improvement=-0.0015
+HHS Region 6    full=0.3971 base=0.3909 improvement=-0.0063
+
+-- breakdown by season (adaptive-full vs adaptive-base) --
+season 2015: full=0.2639 base=0.2673 improvement=0.0034 n=1320
+season 2016: full=0.3284 base=0.329 improvement=0.0006 n=1276
+
+-- breakdown by horizon (adaptive-full vs adaptive-base) --
+h=1: full=0.212 base=0.2128 improvement=0.0007
+h=2: full=0.2744 base=0.2752 improvement=0.0008
+h=3: full=0.3321 base=0.3347 improvement=0.0025
+h=4: full=0.3639 base=0.3679 improvement=0.004
+
+-- breakdown by weeks elapsed in current season (adaptive-full vs adaptive-base) --
+(tests whether adaptation helps more once more of the season has actually been observed)
+weeks 01-04: full=0.1795 base=0.1783 improvement=-0.0011 n=132
+weeks 05-08: full=0.1634 base=0.16 improvement=-0.0034 n=352
+weeks 09-12: full=0.3039 base=0.312 improvement=0.0081 n=352
+weeks 13-16: full=0.4335 base=0.4418 improvement=0.0083 n=352
+weeks 17+: full=0.303 base=0.3036 improvement=0.0006 n=1408

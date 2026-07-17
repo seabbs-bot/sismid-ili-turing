@@ -1,0 +1,65 @@
+deep nowcast -- simple-round
+validation seasons (1, 2) only, natural-scale WIS
+runtime: 32.7s
+
+reference: ar-order sweep's AR(12)+backfill = 0.3518
+           (experiments/simple-round/ar-order/score.txt)
+
+revision profile tiers (of 198 resolved (location, delay, phase) keys):
+  phase: 198
+
+ablation (sorted by mean_wis, ascending):
+id                              mean_wis   sd_wis    cov50    cov90    n_tasks
+ar12-bf-phase-nowcast-season    0.3313     0.4127    0.47     0.829    2596
+ar12-bf-phase-nowcast           0.344      0.425     0.481    0.844    2596
+ar12-bf-phase                   0.3506     0.4466    0.428    0.783    2596
+ar12-bf-median                  0.3518     0.4506    0.42     0.78     2596
+
+A: ar-order's design (phase-blind median, one tail)
+B: + phase-conditioned point correction
+C: + propagated nowcast uncertainty (stochastic tail)
+D: + pooled seasonal term (recommended)
+
+-- lever-by-lever deltas (mean WIS, negative = better) --
+B - A (phase-conditioned point correction): -0.0012
+C - B (propagated nowcast uncertainty):     -0.0065
+D - C (pooled seasonal term):                -0.0128
+
+-- lever-by-lever deltas (coverage, nominal 0.50 / 0.90) --
+A: cov50=0.42 cov90=0.78
+B: cov50=0.428 cov90=0.783
+C: cov50=0.481 cov90=0.844
+D: cov50=0.47 cov90=0.829
+
+-- coverage by horizon: C (no nowcast-uncertainty) vs D (with it) --
+h=1: C cov50=0.516 cov90=0.883  |  D cov50=0.507 cov90=0.875
+h=2: C cov50=0.496 cov90=0.857  |  D cov50=0.476 cov90=0.837
+h=3: C cov50=0.465 cov90=0.823  |  D cov50=0.45 cov90=0.809
+h=4: C cov50=0.445 cov90=0.812  |  D cov50=0.447 cov90=0.794
+
+-- breakdown by location (winner: D) --
+HHS Region 9    D=0.3297 A=0.4042 improvement=0.0746
+HHS Region 3    D=0.3608 A=0.3862 improvement=0.0254
+HHS Region 6    D=0.5115 A=0.5369 improvement=0.0254
+HHS Region 5    D=0.2369 A=0.2581 improvement=0.0212
+HHS Region 1    D=0.193 A=0.2139 improvement=0.0209
+HHS Region 2    D=0.5603 A=0.5799 improvement=0.0197
+HHS Region 4    D=0.3554 A=0.3725 improvement=0.0172
+HHS Region 7    D=0.3741 A=0.3857 improvement=0.0115
+US National     D=0.2618 A=0.2698 improvement=0.0081
+HHS Region 8    D=0.1743 A=0.1813 improvement=0.0071
+HHS Region 10   D=0.2866 A=0.281 improvement=-0.0057
+
+-- breakdown by season (winner: D) --
+season 2015: D=0.2544 A=0.2728 improvement=0.0184
+season 2016: D=0.4108 A=0.4335 improvement=0.0226
+
+-- breakdown by horizon (winner: D) --
+h=1: D=0.2173 A=0.229 improvement=0.0117
+h=2: D=0.3014 A=0.3141 improvement=0.0127
+h=3: D=0.377 A=0.4006 improvement=0.0236
+h=4: D=0.4294 A=0.4634 improvement=0.034
+
+=== best variant: ar12-bf-phase-nowcast-season ===
+mean_wis=0.3313 sd_wis=0.4127 n_tasks=2596
+vs ar-order sweep's AR(12)+backfill (0.3518): 0.0205 (5.83%)

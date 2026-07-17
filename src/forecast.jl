@@ -198,8 +198,12 @@ function forecast_quantiles(
 
     i = 0
     for (li, loc) in enumerate(locs)
-        for (hi, h) in enumerate(hs)
-            qs = quantile(view(vals, li, hi, :), levels)
+        for h in hs
+            # `vals`'s 2nd axis is indexed by horizon VALUE (project fills
+            # column h for h in 1:maximum(horizons)), so read column `h`,
+            # not the position within `hs` -- they differ for a
+            # non-contiguous/subset `horizons` (e.g. [1, 3, 4]).
+            qs = quantile(view(vals, li, h, :), levels)
             for (qi, lvl) in enumerate(levels)
                 i += 1
                 model_ids[i] = model_id

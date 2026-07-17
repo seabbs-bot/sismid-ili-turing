@@ -67,6 +67,30 @@ end
     end
 end
 
+@testset "forecast_quantiles: non-contiguous horizons map by value" begin
+    # Regression: vals is filled by `project` indexed by horizon VALUE
+    # (column h for h in 1:maximum(horizons)), so the output loop must
+    # read column h, not the position within `horizons`. With a subset
+    # like [1, 3, 4] these differ, and reading by position would attach
+    # the wrong horizon's forecast under a correctly-labelled row.
+    data = synthetic_data()
+    chain = [(dummy=1.0,)]
+
+    # Deterministic: column h carries the constant value (h + 1) on the
+    # natural scale, so every quantile for horizon h must equal h + 1.
+    perh_project(draw, d, horizons) =
+        [to_scale(h + 1.0, :log) for _ in 1:d.L, h in 1:maximum(horizons)]
+
+    df = forecast_quantiles(chain, data, "nfidd-hz";
+        horizons=[1, 3, 4], project=perh_project)
+
+    @test Set(df.horizon) == Set([1, 3, 4])
+    for h in (1, 3, 4)
+        vals_h = df[df.horizon .== h, :value]
+        @test all(v -> isapprox(v, h + 1.0; atol=1e-8), vals_h)
+    end
+end
+
 @testset "forecast_quantiles: default_project" begin
     data = synthetic_data()
     L = data.L

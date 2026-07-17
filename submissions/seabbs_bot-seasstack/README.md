@@ -1,8 +1,18 @@
 # seabbs_bot-seasstack
 
-Round-3 hub submission ([reichlab PR #80](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/80)).
-Validation WIS **0.2601** (50% coverage 0.565, 90% coverage 0.943), selected
-on the validation seasons (2015/16, 2016/17) only.
+Merged as [reichlab PR #80](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/80).
+
+> **LEAKAGE NOTE.** The `generate.jl`/`generate_forecasts.jl` archived in this
+> directory are the ORIGINAL build, which estimated the pooled seasonal and
+> backfill profiles once from all `season_year <= 2016` data — for validation
+> origins that leaked those seasons' own future weeks. The advertised 0.2601 is
+> leak-inflated. The **honest leak-free** score for this exact model (profiles
+> rebuilt per-origin from strictly-prior data) is **0.2891** (cov50 0.521,
+> cov90 0.914) — still a genuine −3.8% over the clean `season` model (0.3004),
+> so the log + Student-t + AR-pooling stack holds up. The leak-free rebuild
+> lives in `experiments/simple-round/round2-stack/` (see its `score.txt`). A
+> clean submission driver is being centralised via the leak-free `src/`
+> profile functions; do not resubmit from the drivers in this dir as-is.
 
 ## Method
 

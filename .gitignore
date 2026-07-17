@@ -13,6 +13,7 @@ data/*.csv
 
 # Run outputs
 experiments/**/output/
+experiments/simple-round/*/forecast.csv
 reports/**/figures/
 *.log
 .DS_Store

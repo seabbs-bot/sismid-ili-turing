@@ -23,7 +23,9 @@ test them on the three testing seasons, and submit the finalist(s).
   with a non-monotonic report profile. wILI revisions can move up or down with
   delay because wILI is a re-weighted percentage, not an accumulating count, so
   the delay-indexed revision is not constrained to a monotonic reporting CDF.
-  Built into the joint Turing model rather than run as a separate step.
+  The revision profile differs by location and over time, partially pooled
+  across both. Built into the joint Turing model rather than run as a separate
+  step.
 
 Formulations to test as candidate axes in the search:
 
@@ -34,6 +36,7 @@ Formulations to test as candidate axes in the search:
 - AR order greater than 2.
 - AR as a vector autoregression (VAR) across locations vs independent per
   location.
+- Backfill profile: shared vs location-varying vs time-varying.
 
 ## Search and selection
 
@@ -58,6 +61,9 @@ Formulations to test as candidate axes in the search:
 ## Ways of working
 
 - Use parallel subagents with implement-and-review loops.
+- Run at least 10 rounds of implement-and-review.
+- Per round, use multiple implementers (lower-power models are fine) proposing
+  competing implementations, and a reviewer picks the preferred one.
 - Merge to main via pull requests or directly, depending on the parallel-agent
   setup.
 - Always keep a few core jobs running regardless of box load; spin out more work

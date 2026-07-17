@@ -27,7 +27,9 @@ vintage observation = joint-backfill(latent value, reporting delay)
   incomplete weeks are effectively nowcast before the forecast extends forward.
   Because wILI is a re-weighted percentage rather than an accumulating count, the
   revision can move up or down as the delay grows, so the profile is not
-  constrained to a monotonic reporting CDF. Vintage data drives this, matching
+  constrained to a monotonic reporting CDF. The profile differs by location and
+  over time, partially pooled across both, and shared vs location-varying vs
+  time-varying is itself a candidate axis. Vintage data drives this, matching
   what a real-time forecaster saw.
 
 ## Search and selection
@@ -73,7 +75,11 @@ status line in the README, and (for search loops) adds a report under
   - [ ] Hubverse CSV writer and a local `hubValidations` check.
   - [ ] Experiment-report template wired to the scoring output.
 - [ ] **Phase 2 — search** (validation seasons 2015/16, 2016/17)
-  - [ ] Run the tree search; one report per loop; rank by WIS and WIS SD.
+  - [ ] Run the tree search over at least 10 implement-and-review rounds; one
+        report per loop; rank by WIS and WIS SD.
+  - [ ] Each round: multiple implementers (lower-power models allowed) propose
+        competing candidates; a reviewer picks the preferred one to carry
+        forward.
 - [ ] **Phase 3 — select** finalist(s), balancing WIS, WIS SD, and parsimony.
 - [ ] **Phase 4 — test** (seasons 2017/18–2019/20)
   - [ ] Full expanding-window forecasts for finalists; validate submission.

@@ -16,7 +16,7 @@ Filled in as each piece lands, so this document tracks what actually exists.
 | Base model | todo | Phase 1 |
 | Forecast + hubverse writer | todo | Phase 1 |
 | Bayesian workflow checks | todo | prior/posterior predictive, residuals; per candidate, Phase 2 |
-| Submission smoke-test PR | todo | proves hubverse mechanics ahead of the finalist PR, Phase 5 |
+| Submission smoke-test PR | done | draft PR #59 on the reichlab hub passed the hub's validate-submission CI |
 | Documenter docs site | todo | renders Julia API docs; links brief, plan, infrastructure, contracts, steer-log, `docs/eda/`, and per-loop reports |
 
 ## Data

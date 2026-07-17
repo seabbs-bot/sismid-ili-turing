@@ -79,6 +79,15 @@ iterative: a look-review-restart loop, not a one-shot analysis.
 Do not over-index on the current EDA numbers; treat them as inspiration that
 gets revisited and updated across search rounds.
 
+Complexity is not grounds for dropping a candidate.
+If a model segfaults, samples slowly, or is awkward to fit, fix it, rewrite
+AD-unfriendly constructs, reparameterise, or reduce its size, rather than
+abandoning the branch.
+
+Rounds overlap rather than serialising on the slowest fit.
+Score each candidate as it becomes ready, keep slow or complex fits in flight,
+and push the next round forward without waiting on them.
+
 ## Phases and checkpoints
 
 Each checkpoint commits and pushes to `seabbs-bot/sismid-ili-turing`, updates the

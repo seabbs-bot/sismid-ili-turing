@@ -5,20 +5,31 @@ Reporting delay = `as_of - origin_date`, in weeks.
 Computed in Julia (CSV.jl, DataFrames.jl, Statistics, StatsBase).
 
 **Experimental integrity: filtered to `season_year <= 2016`** (see
-[[01-series-overview]] for the definition), i.e. pre-2015 history
-plus the two validation seasons only.
+[[01-series-overview]] for the definition), the full training set —
+pre-2015 history plus the two validation seasons.
 The three held-out testing seasons are excluded throughout.
 
 ## Snapshot structure
 
-- Within the validation-period cutoff: 77 distinct `as_of`
-  snapshots, 2015-10-01 to 2017-06-30 (mostly weekly spacing).
+- Within the training-set cutoff: 77 distinct `as_of` snapshots,
+  2015-10-01 to 2017-06-30 (mostly weekly spacing).
+  2015-10-01 is when the reporting-version file itself starts
+  recording snapshots (a data-collection artefact of the source
+  file, not an experimental-integrity restriction we chose).
 - 717 distinct `origin_date` values, back to 2003-08-30.
 - 31,086 rows total; 87% of (location, origin_date) series have
-  only a single recorded version (old, already-settled weeks that
-  entered the tracked window as a single snapshot); the remaining
-  13% (1,023 series) have a genuine multi-version revision history
-  and are the basis for the numbers below.
+  only a single recorded version.
+  These are training-set weeks that had already settled by the time
+  the version file's tracking began, so only their final value was
+  ever captured.
+  The remaining 13% (1,023 series) have a genuine multi-version
+  revision history and are the basis for the numbers below; because
+  tracking only starts 2015-10-01, every one of these 1,023 series
+  falls in the two most recent training-set seasons (`2015/16`,
+  `2016/17` — 517 and 506 series respectively).
+  Earlier training-set seasons (`2004/05`-`2014/15`) are not a gap
+  in our filtering, they are simply not covered by this source
+  file's snapshot history.
 - For those series, the tracked delay runs from 1 week up to 48
   weeks (the last snapshot for old data), with a median of 25 weeks
   between first and last recorded version.
@@ -117,6 +128,26 @@ both revision *magnitude* (bigger relative swings off-peak) and, to
 a smaller extent, revision *direction*.
 This is real but weaker than the location effect above.
 
+## Variation across training seasons
+
+The two training-set seasons with tracked revision history also
+differ from each other at delay 1 (pooled across locations,
+n = 407 each):
+
+| training season | median rel. revision (delay 1) | % up (delay 1) |
+|---|---|---|
+| `2015/16` | 4.5% | 69% |
+| `2016/17` | 3.5% | 73% |
+
+The direction is consistent (majority upward both seasons) but the
+size and the upward share both shift season to season, on top of
+the larger location-driven differences above.
+With only two tracked seasons this is too small a sample to fit a
+season-level revision effect confidently, but it is further evidence
+that a single fixed revision profile is unlikely to hold everywhere
+and every season — a partially-pooled profile that can absorb both
+location and season variation is the safer default.
+
 ## Implications for the model
 
 - Do not use a monotonic reporting-CDF backfill (e.g. a plain
@@ -128,11 +159,16 @@ This is real but weaker than the location effect above.
 - Partially pool the delay-indexed revision profile across
   locations (means differ more than an order of magnitude and can
   differ in sign) and allow some time variation (both magnitude and,
-  more weakly, direction differ off-season vs peak season), matching
-  the brief's "shared vs location-varying vs time-varying" search
-  axis.
-- These estimates come from a smaller, validation-only slice
-  (1,023 revised series vs the full history); direction and size by
-  location are consistent in sign with a full-history check, but
-  treat the exact percentages as approximate given the reduced
-  sample, and re-check once test-season evaluation is unlocked.
+  more weakly, direction differ off-season vs peak season, and
+  between the two tracked training seasons), matching the brief's
+  "shared vs location-varying vs time-varying" search axis.
+- The 1,023 series with tracked revision history all fall in the
+  two most recent training-set seasons (`2015/16`, `2016/17`),
+  because the reporting-version source file only records snapshots
+  from 2015-10-01 onward — this is a property of the source data,
+  not a subset we chose, and there is no larger already-tracked
+  training-set sample to fall back on.
+  Treat the exact percentages above as estimated from those two
+  seasons specifically, re-derive them if a version file with longer
+  tracked history becomes available, and never substitute the
+  held-out test seasons as a stand-in for more revision history.

@@ -4,8 +4,9 @@ Source: `data/flu_data_hhs.csv` (finalized series).
 Computed in Julia (CSV.jl, DataFrames.jl, Statistics, StatsBase).
 
 **Experimental integrity: this and every report in `docs/eda/` uses
-only pre-2015 history plus the two validation seasons (`2015/16`,
-`2016/17`).**
+the full training set, pre-2015 history plus the two validation
+seasons (`2015/16`, `2016/17`) — 13 full seasons (`2004/05`
+-`2016/17`) plus a partial `2003` season.**
 The three testing seasons (`2017/18`-`2019/20`) are excluded from
 every summary below, per `docs/contracts.md`: they are held out for
 final evaluation and must not inform model design.
@@ -16,8 +17,8 @@ If you extend this analysis, filter to `season_year <= 2016` first
 
 - 11 locations: `US National` and `HHS Region 1`..`HHS Region 10`.
 - Weekly reference dates (Saturdays).
-- After the validation cutoff: 2003-08-30 to 2017-07-22, 726 rows
-  per location, 7,986 rows total.
+- Full training set (`season_year <= 2016`): 2003-08-30 to
+  2017-07-22, 726 rows per location, 7,986 rows total.
 - No missing values in the finalized series (0 everywhere) and
   every location has exactly the same 726 dates in this window.
 - Full history (including the held-out test seasons, not analysed
@@ -46,10 +47,11 @@ This `woy`/`season_year` definition matches the tscv split files:
 origin of 2016-05-07 (`season_year` 2015, i.e. `2015/16`), and
 `season2`..`season5` correspond to `season_year` 2016..2019
 (`2016/17`..`2019/20`).
-So `season1,2` = the validation seasons analysed here, and
-`season3-5` = the held-out testing seasons excluded from all EDA.
+So `season1,2` = the two most recent seasons of the training set
+analysed here (also the validation seasons), and `season3-5` = the
+held-out testing seasons excluded from all EDA.
 
-## Scale (wILI, percentage points), validation-period data only
+## Scale (wILI, percentage points), full training set
 
 | location | min | median | mean | max | n zero |
 |---|---|---|---|---|---|
@@ -84,7 +86,7 @@ each candidate transform assumes.
 (a lognormal-like law); `sqrt` if `SD ∝ mean^0.5` (Poisson-like);
 `fourth-root` sits in between.
 We estimate the actual mean-variance law empirically (Taylor's power
-law) and via Box-Cox, both on validation-period data only.
+law) and via Box-Cox, both on the full training set.
 
 **Method.** For each (location, `woy`) cell, we have up to 13
 independent observations (one per season, 2004-2016).
@@ -174,7 +176,7 @@ log](figures/01_transform_variance_stabilisation.png)
 ## Transform comparison: skewness (secondary evidence)
 
 Skewness of the raw series and three candidate transforms
-(min-to-max across the 11 locations, validation-period data):
+(min-to-max across the 11 locations, full training set):
 
 | transform | skewness range | notes |
 |---|---|---|

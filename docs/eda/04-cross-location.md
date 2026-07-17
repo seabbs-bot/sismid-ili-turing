@@ -75,7 +75,7 @@ differenced)](figures/04_cross_location_correlation.png)
   independent treatment, rather than forcing them into the same
   correlation structure as the tightly-coupled core (Region 4,
   Region 5, Region 6, US National).
-- These are validation-period-only correlations; re-check them once
-  more seasons of data become available for design decisions (never
-  by looking at the held-out test seasons themselves, only by
-  re-running this same script if the validation window is extended).
+- These are full-training-set correlations (13 seasons, `2004/05`
+  -`2016/17`); re-check them if the training window is later extended
+  with more history, but never by drawing on the three held-out test
+  seasons before final evaluation.

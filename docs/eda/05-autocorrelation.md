@@ -11,8 +11,8 @@ location x week-of-season mean, using the `woy` definition from
 brief asks the model to place on top of the seasonal component.
 
 **Experimental integrity: filtered to `season_year <= 2016`** (see
-[[01-series-overview]] for the definition), i.e. pre-2015 history
-plus the two validation seasons only.
+[[01-series-overview]] for the definition), the full training set —
+pre-2015 history plus the two validation seasons.
 The three held-out testing seasons are excluded throughout.
 
 ## Raw log series (seasonality still present)
@@ -48,9 +48,10 @@ AIC-based AR order selection on this residual (Yule-Walker) gives:
 | HHS Region 10 | 9 |
 | HHS Region 7 | 10 |
 
-Median 5, range 4-10.
+Median 5, range 4-10 — a more than 2-fold spread across the 11
+locations.
 So although the PACF looks close to an AR(1) cutoff, AIC still
-prefers higher order for every location in this validation-period
+prefers higher order for every location in this full-training-set
 sample — the gradual ACF decay plus small-but-nonzero higher-lag
 partials add up over many lags.
 This directly supports the brief's instruction to consider AR order
@@ -59,6 +60,10 @@ locations would be a poor fit to this range; a partially-pooled
 order/coefficient structure (shrinking high-order coefficients
 toward zero rather than fixing one hard cutoff) fits the spread
 better than picking one fixed low order for everyone.
+This order search pools all 13 training-set seasons together per
+location; whether AR order or coefficients also drift from season to
+season within a location has not yet been tested and is worth a
+follow-up if per-season identifiability allows it.
 
 ![ACF and PACF of the deseasonalised residual, and ACF of its first
 difference, for four example locations spanning the AR-order range
@@ -100,6 +105,7 @@ locations.
   higher-order (up to ~9-10) partially-pooled alternatives per the
   brief, since AIC prefers order >= 4 for every location in this
   sample and order >= 5 for 8 of the 11.
-- This is a validation-period-only estimate (13 seasons); revisit
-  the order search as more validation-period detail is added, and
-  never extend it into the three held-out testing seasons.
+- This is a full-training-set estimate (13 seasons, pooled across
+  seasons per location); revisit the order search as a per-season
+  breakdown becomes feasible, and never extend it into the three
+  held-out test seasons.

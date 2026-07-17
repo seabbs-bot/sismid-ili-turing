@@ -6,8 +6,9 @@ day-of-year ≈ 205, late July).
 Computed in Julia (CSV.jl, DataFrames.jl, Statistics, StatsBase).
 
 **Experimental integrity: filtered to `season_year` 2004-2016**
-(13 full seasons: `2004/05`..`2016/17`), i.e. pre-2015 history plus
-the two validation seasons.
+(13 full seasons: `2004/05`..`2016/17`), the full set of complete
+training-set seasons, i.e. pre-2015 history plus the two validation
+seasons.
 The partial first season (`2003`, missing its first ~5 weeks of
 data) and the three held-out testing seasons (`2017/18`-`2019/20`)
 are excluded throughout.
@@ -17,9 +18,9 @@ onset/offset**, per location and per season, as cross-season
 features for the search agents to use directly (e.g. as informative
 priors on a season-level random effect, or as sanity checks on
 posterior seasonal-curve draws).
-Treat every number here as a living estimate from a 13-season,
-validation-only sample: re-check it as the search progresses, and
-do not hard-code it as ground truth for the held-out seasons.
+Treat every number here as a living estimate from the full 13-season
+training set: re-check it as the search progresses, and do not
+hard-code it as ground truth for the held-out test seasons.
 
 ## Peak timing: national, by season
 
@@ -182,7 +183,7 @@ peak week](figures/03_seasonal_curves.png)
   board; if the model separates a rise phase from a decline phase
   (e.g. asymmetric seasonal curve), allow more flexibility on the
   decline side.
-- These are 13-season, validation-only estimates (small n per
-  location); revisit them as the search progresses rather than
+- These are full-training-set estimates (13 seasons, still a modest
+  n per location); revisit them as the search progresses rather than
   treating them as fixed targets, and never extend this analysis
-  into the three held-out testing seasons.
+  into the three held-out test seasons.

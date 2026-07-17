@@ -1,0 +1,33 @@
+simple-round candidate: conformal-pooled (leak-free pooled-seasonal point forecast + split-conformal intervals)
+=============================================================================
+Point forecast: LEAK-FREE pooled week-of-season seasonal shape (shared across all 11 locations, rebuilt per origin from origin_date < forecast origin) + per-(location,delay) backfill (also rebuilt per origin) + per-location AR(6) with AR-coefficient pooling (w=0.3), log transform. Intervals: split-conformal, reused verbatim from experiments/simple-round/conformal.
+Scored on VALIDATION SEASONS (1, 2) ONLY, natural scale, against target-data/oracle-output.csv (docs/contracts.md experimental integrity). Every profile is fit only from data strictly before each forecast origin -- no validation-season future weeks inform their own forecasts.
+
+Reference points (all leak-free):
+  season model (per-location climatology + backfill)   = 0.3004
+  conformal on plain climatology (per-loc, fourthroot) = 0.2917
+  seasstack full stack (log + Student-t + AR pooling)  = 0.2891
+
+RESULT: seabbs_bot-conformal-pooled mean_wis=0.287 sd_wis=0.3311 n_tasks=2596
+  vs season model (0.3004): 0.0134 (4.46%)
+  vs conformal-on-plain-climatology (0.2917, the target to beat): 0.0047 (1.61%)
+
+Coverage (nominal -> actual):
+  50% -> 0.517
+  90% -> 0.908
+
+AR-coefficient pooling weight sweep (leak-free, validation seasons 1-2; POOL_WEIGHT env var):
+  w=0.0  mean_wis=0.2950  cov50=0.509  cov90=0.893
+  w=0.3  mean_wis=0.2870  cov50=0.517  cov90=0.908  <- selected (validation optimum)
+  w=0.5  mean_wis=0.2905  cov50=0.521  cov90=0.919
+  w=0.7  mean_wis=0.3022  cov50=0.518  cov90=0.922
+  w=0.9  mean_wis=0.3239  cov50=0.502  cov90=0.916
+  Shallow interior optimum at w=0.3; light AR pooling helps, heavy pooling over-shrinks (the shared pooled seasonal shape already couples the locations). Unlike seasstack (w=0.9 on its own design), this model wants only light AR pooling.
+
+HONEST ANSWER: leak-free pooled-seasonal + conformal (w=0.3) = 0.2870, which BEATS the clean season model (0.3004, -4.5%) and conformal-on-plain-climatology (0.2917, -1.6%), and marginally edges seasstack (0.2891, -0.7%). The margin over the two conformal/stack references is within validation noise -- the pooled seasonal shape itself is ~a wash (as the leaderboard found); the gains are from log + light AR pooling + calibrated intervals.
+
+For comparison, simp-intervals found the RAW (unscaled) parametric scheme covers only ~41%/78% at 50%/90% nominal, and its own tuned/inflated Student-t scheme (needed to fix that) still lands at 52.5%/89.2% -- over-covered because a symmetric distribution has to be blown up past its natural spread to compensate for the point forecast's own skew. Split-conformal calibration reads the (possibly skewed) error quantiles directly, with no distributional assumption once a horizon's pool has matured.
+
+Design: rolling walk-forward split-conformal, pooled across all 11 locations per horizon (see generate.jl module docstring for the full pending/maturation mechanism). MIN_CALIB=10; fallback (only the first few origins of season 1) is simp-intervals' own Student-t(df=10, scale=1.4) scheme.
+
+Runtime: 19.85s for the full 5-season build (no Monte Carlo simulation anywhere -- point forecast is a deterministic recursion, calibrated quantiles come directly from an empirical or closed-form Student-t quantile function).

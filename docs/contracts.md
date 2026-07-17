@@ -94,8 +94,9 @@ A tidy `DataFrame` with exactly these columns:
   levels implied by `QUANTILE_LEVELS`.
 - `src/hubio.jl`: `write_submission(forecast_df, hub_path; designated=true)` —
   one CSV per origin_date under `model-output/<model_id>/`, columns in hub order
-  (`origin_date, location, horizon, target_end_date, target, output_type,
-  output_type_id, value`, no `model_id`), plus `model-metadata/<model_id>.yml`
+  (`origin_date, location, target, horizon, target_end_date, output_type,
+  output_type_id, value`, no `model_id`; verified against the real hist-avg
+  files), plus `model-metadata/<model_id>.yml`
   (`team_abbr`, `model_abbr`, `designated_model`).
 - `src/inference.jl`: `fit_pathfinder(model; draws=1000)` and
   `fit_mcmc(model; samples=1000, chains=2, adtype=AutoMooncake(), cb=nothing)` —

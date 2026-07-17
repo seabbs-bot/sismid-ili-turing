@@ -1,0 +1,17 @@
+# Julia
+Manifest.toml
+/deps/build.log
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+/docs/build/
+
+# Data artifacts (exported / generated, not source)
+data/*.arrow
+data/*.parquet
+
+# Run outputs
+experiments/**/output/
+reports/**/figures/
+*.log
+.DS_Store

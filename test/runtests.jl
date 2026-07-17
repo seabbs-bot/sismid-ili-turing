@@ -16,8 +16,8 @@ const ROOTDIR = dirname(TESTDIR)
 # display/run order for modules we know about; anything else discovered
 # still runs, appended alphabetically after the known ones.
 const KNOWN_ORDER = [
-    "core", "data", "model", "inference", "forecast", "scoring", "hubio",
-    "diagnostics", "integration",
+    "core", "data", "seasonal", "model", "inference", "forecast",
+    "scoring", "hubio", "diagnostics", "integration",
 ]
 
 function discover_modules(testdir)

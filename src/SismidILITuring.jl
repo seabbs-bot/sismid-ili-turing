@@ -18,6 +18,7 @@ module SismidILITuring
 # scope (see docs/contracts.md); each brings its own `using` statements.
 include("core.jl")
 include("data.jl")
+include("seasonal.jl")
 include("model.jl")
 include("scoring.jl")
 include("forecast.jl")
@@ -33,6 +34,10 @@ export ModelData, LOCATIONS, QUANTILE_LEVELS, TARGET, HORIZONS,
 # Data (data.jl)
 export load_series, build_model_data, training_splits,
     VALIDATION_SEASONS, TEST_SEASONS
+
+# Seasonal climatology + backfill/revision profile (seasonal.jl)
+export build_seasonal_profile, build_revision_profile,
+    apply_backfill_correction!
 
 # Model (model.jl)
 export base_model, model_dims

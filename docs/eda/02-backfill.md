@@ -148,6 +148,63 @@ that a single fixed revision profile is unlikely to hold everywhere
 and every season — a partially-pooled profile that can absorb both
 location and season variation is the safer default.
 
+## Revision structure by location and by tracked season
+
+The location and season summaries above are pooled, or use only
+three example locations; this section breaks the delay-1 revision
+down per location, per tracked training season (`2015/16` vs
+`2016/17`, n = 37 per location per season), to check whether the
+season-to-season shift noted above is a small pooled effect or
+hides larger, location-specific swings.
+
+| location | 2015/16 median abs. rev. | 2015/16 % up | 2016/17 median abs. rev. | 2016/17 % up |
+|---|---|---|---|---|
+| US National | 0.078 | 70% | 0.091 | 54% |
+| HHS Region 1 | 0.104 | 27% | 0.076 | 57% |
+| HHS Region 2 | 0.715 | 95% | 0.337 | 73% |
+| HHS Region 3 | 0.105 | 51% | 0.214 | 81% |
+| HHS Region 4 | 0.133 | 95% | 0.092 | 43% |
+| HHS Region 5 | 0.068 | 41% | 0.080 | 49% |
+| HHS Region 6 | 0.154 | 76% | 0.065 | 65% |
+| HHS Region 7 | 0.080 | 78% | 0.100 | 76% |
+| HHS Region 8 | 0.021 | 68% | 0.047 | 65% |
+| HHS Region 9 | 0.505 | 27% | 0.211 | 51% |
+| HHS Region 10 | 0.042 | 27% | 0.080 | 49% |
+
+Region 2 is the most heavily revised location in both seasons (its
+median absolute revision is 3-7x every other location) but the size
+roughly halves between seasons (0.715 to 0.337) while staying
+strongly upward (95% to 73% up).
+More strikingly, **Region 1 and Region 4 flip direction entirely**
+between the two tracked seasons.
+Region 1 goes from 27% up (i.e. 73% of first reports revised down)
+in `2015/16` to 57% up in `2016/17`.
+Region 4 goes from 95% up in `2015/16` to 43% up (majority
+downward) in `2016/17`.
+Region 9 also shifts substantially (27% to 51% up).
+This is a stronger, location-specific version of the pooled
+season-to-season shift noted above (4.5% to 3.5% median relative
+revision, 69% to 73% up): at the pooled level the two seasons look
+broadly similar, but several individual locations swing much more,
+including full direction reversals.
+
+![Backfill revision size by delay, faceted by all 11 locations and
+split by tracked training season (`2015/16` vs `2016/17`); most
+locations show a visibly different profile between the two seasons,
+on top of the larger cross-location differences already shown
+above](figures/07_backfill_by_region.png)
+
+This sharpens the point made in the "variation across training
+seasons" section above: with only two tracked seasons, a
+location-varying revision profile is necessary (Region 2 alone
+needs a materially different scale from every other location), and
+a season-varying component is not just a small pooled adjustment,
+it needs to represent genuine direction reversals for at least
+Region 1 and Region 4.
+A model that pools the revision profile fully across locations, or
+treats season variation as a small shared shift, would misrepresent
+this behaviour for several of the 11 locations.
+
 ## Implications for the model
 
 - Do not use a monotonic reporting-CDF backfill (e.g. a plain
@@ -162,6 +219,12 @@ location and season variation is the safer default.
   more weakly, direction differ off-season vs peak season, and
   between the two tracked training seasons), matching the brief's
   "shared vs location-varying vs time-varying" search axis.
+  The per-location, per-season breakdown above shows this is not
+  just a small pooled adjustment: Region 1 and Region 4 fully
+  reverse the sign of their delay-1 revision bias between `2015/16`
+  and `2016/17`, so the season-varying component needs enough
+  flexibility to represent a genuine sign flip, not only a
+  magnitude change, for at least some locations.
 - The 1,023 series with tracked revision history all fall in the
   two most recent training-set seasons (`2015/16`, `2016/17`),
   because the reporting-version source file only records snapshots

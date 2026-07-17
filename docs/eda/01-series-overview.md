@@ -199,6 +199,39 @@ something the AR/seasonal noise distribution should absorb (e.g. a
 Student-t observation noise) rather than something to fix by
 choosing a more skew-corrective transform.
 
+## Transform comparison: pooled distribution shape (visual evidence)
+
+The tables above summarise variance-stabilisation and skewness as
+numbers; this section shows the pooled distribution shape directly,
+as histograms and normal QQ-plots, to make the same story visible
+at the observation level rather than only in per-location
+statistics.
+Because raw scale differs several-fold by location (see the scale
+table above), every location is z-scored (subtract its own mean,
+divide by its own SD) before pooling, for both the raw values and
+the fourth-root-transformed values, so the plot shows shape rather
+than being dominated by scale differences between locations.
+
+![Pooled, per-location-standardised distribution of raw vs
+fourth-root wILI: histograms (top) and normal QQ-plots (bottom).
+Fourth-root visibly shortens the long right tail (raw z-scores
+extend past +10; fourth-root z-scores stay within about ±5) and
+tracks the QQ reference line much more closely across the whole
+range, whereas raw wILI departs from the line increasingly in both
+tails](figures/08_transform_distribution.png)
+
+Raw wILI's QQ-plot bows well above the reference line through the
+upper half, reflecting the strong right skew already quantified
+above (skewness 1.51-3.45); fourth-root's QQ-plot sits close to the
+line across nearly the whole range, with only mild departures in
+the extreme tails, consistent with its much lower skewness range
+(0.02-1.04).
+This is the same variance-stabilisation and skewness evidence
+already tabulated above, shown directly at the observation level:
+fourth-root is not just flatter on a mean-variance regression, its
+pooled marginal shape is visibly closer to a stable, close-to-normal
+distribution than the raw scale.
+
 ## Implications for the model
 
 - Location-specific intercepts/scales are essential: raw ranges

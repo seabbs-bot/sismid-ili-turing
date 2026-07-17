@@ -28,11 +28,17 @@ new questions come up during the search.
   `log` and fourth-root, but a direct flatness comparison shows
   fourth-root clearly outperforms `log`/`log1p` at stabilising
   variance in this data.
+  Pooled, per-location-standardised histograms and QQ-plots make the
+  same variance-stabilisation/skewness story visible directly at the
+  observation level.
 - [[02-backfill]] - the reporting/revision process from the versions
   data: revision size by delay, non-monotonic direction, and
   variation by location and season phase.
   Revisions are non-monotonic and location-varying, settling by
   roughly delay 10-15 weeks.
+  A per-location, per-season breakdown shows this is not a small
+  pooled effect: Region 1 and Region 4 fully reverse the sign of
+  their delay-1 revision bias between `2015/16` and `2016/17`.
 - [[03-seasonality]] - **peak timing, peak height, and season
   onset/offset per location and per season**, plus curve shape and
   amplitude, as cross-season features for the model agents.
@@ -52,3 +58,10 @@ new questions come up during the search.
   (range 4-10) across locations; AR is preferred over differencing
   for most locations (differencing shows an over-differencing
   artefact, negative lag-1 ACF), except Region 4/Region 5.
+- [[06-regional-heterogeneity]] - three per-location summary
+  statistics (off-season baseline, mean seasonal amplitude,
+  differenced-series volatility) compared side by side.
+  The three rankings are not the same; volatility correlates
+  negatively with baseline (r = -0.63), so smaller locations are
+  proportionally noisier week to week, not just scaled-down copies
+  of the larger ones.

@@ -19,8 +19,11 @@ test them on the three testing seasons, and submit the finalist(s).
 - Seasonality learned as a random-effect structure, not Fourier terms.
   It varies by location and by season (time).
 - Autoregressive noise on top of the seasonal component, partially pooled.
-- A simple reporting-backfill model, in the spirit of baselinenowcast,
-  built into the joint Turing model rather than run as a separate step.
+- A reporting-backfill model in the spirit of the baselinenowcast package, but
+  with a non-monotonic report profile. wILI revisions can move up or down with
+  delay because wILI is a re-weighted percentage, not an accumulating count, so
+  the delay-indexed revision is not constrained to a monotonic reporting CDF.
+  Built into the joint Turing model rather than run as a separate step.
 
 Formulations to test as candidate axes in the search:
 

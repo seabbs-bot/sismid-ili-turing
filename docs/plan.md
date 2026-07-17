@@ -21,11 +21,14 @@ vintage observation = joint-backfill(latent value, reporting delay)
   pooled. Variants tested: AR vs differencing, AR order (including > 2),
   time-varying AR coefficients, and independent AR per location vs a VAR across
   locations.
-- **Backfill** is a simple joint revision model. A latent "final" value is
-  observed through a delay-indexed revision effect (partially pooled), estimated
-  jointly so recent incomplete weeks are effectively nowcast before the forecast
-  extends forward. Vintage data drives this, matching what a real-time forecaster
-  saw.
+- **Backfill** is a joint revision model in the spirit of baselinenowcast, but
+  with a non-monotonic report profile. A latent "final" value is observed through
+  a delay-indexed revision effect (partially pooled), estimated jointly so recent
+  incomplete weeks are effectively nowcast before the forecast extends forward.
+  Because wILI is a re-weighted percentage rather than an accumulating count, the
+  revision can move up or down as the delay grows, so the profile is not
+  constrained to a monotonic reporting CDF. Vintage data drives this, matching
+  what a real-time forecaster saw.
 
 ## Search and selection
 

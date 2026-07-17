@@ -9,6 +9,7 @@ Manifest.toml
 # Data artifacts (exported / generated, not source)
 data/*.arrow
 data/*.parquet
+data/*.csv
 
 # Run outputs
 experiments/**/output/

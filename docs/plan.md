@@ -91,6 +91,27 @@ Rounds overlap rather than serialising on the slowest fit.
 Score each candidate as it becomes ready, keep slow or complex fits in flight,
 and push the next round forward without waiting on them.
 
+### Continuous iteration and periodic review
+
+Neither EDA nor the implement-and-review loop is a one-shot pass.
+
+- EDA is a continuous iterate-and-review loop.
+  It keeps deepening the analysis and updating `docs/eda/` across every
+  round: folding in each round's results and failure modes, and re-checking
+  earlier estimates on the full training set rather than treating them as
+  fixed.
+- The implement-and-review loop likewise iterates continuously across
+  rounds; it does not stop once a round's candidates are scored.
+- Every agent working on any task must periodically review the current
+  repo docs (`docs/eda/`, `plan.md`, `brief.md`, `steer-log.md`) and the
+  latest round or experiment reports (`reports/*`), at minimum at the start
+  of each round or task, so work stays aligned with the newest findings
+  rather than stale assumptions.
+- After each search round, an EDA/review pass updates `docs/eda/` and this
+  plan with what was learned (which regions or times the round's models
+  fail on, what to probe next) before the next round's candidates are
+  designed.
+
 ## Phases and checkpoints
 
 Each checkpoint commits and pushes to `seabbs-bot/sismid-ili-turing`, updates the

@@ -41,6 +41,9 @@ new questions come up during the search.
   their delay-1 revision bias between `2015/16` and `2016/17`, and a
   phase-crossed check confirms this is a genuine season-level shift,
   not a peak-vs-off-season artefact.
+  On the fourth-root modelling scale the location-varying revision
+  spread compresses from ~14x to ~7x, but Region 2 and Region 9 stay
+  the two most heavily revised locations either way.
 - [[03-seasonality]] - **peak timing, peak height, and season
   onset/offset per location and per season**, plus curve shape and
   amplitude, as cross-season features for the model agents.
@@ -63,6 +66,10 @@ new questions come up during the search.
   week-to-week coupling above; Region 9 is the weak link on this
   axis, Region 2 on peak timing in [[03-seasonality]] — different
   locations are the outlier depending on which structure is tested.
+  Season *duration* (offset minus onset) is the weakest of all three
+  shared-year tests (mean r=0.06, essentially independent per
+  location), completing a clear ordering: amplitude (strong) >
+  onset timing (weak) > duration (~none).
 - [[05-autocorrelation]] - ACF/PACF of the (deseasonalised) log
   series and its first difference, per location.
   AIC-selected AR order on the deseasonalised residual has median 5

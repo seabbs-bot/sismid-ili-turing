@@ -246,6 +246,46 @@ similar within-season phase consistency alongside a between-season
 shift in the figure, though not as extreme a reversal as Region 1 or
 Region 4.
 
+## Revision magnitude on the modelling scale
+
+Every revision-size number so far is measured in raw wILI
+percentage points, but the model fits on a transformed scale
+(fourth-root, [[01-series-overview]]).
+Direction cannot change under a monotonic transform — a revision
+that is upward on the raw scale is upward on any monotonic transform
+of it too — so the non-monotonic-direction and season-reversal
+findings above hold regardless of scale.
+Magnitude is a different matter: fourth-root compresses large values
+much more than small ones, so the extreme location-to-location
+spread in raw revision size might partly be a scale artefact rather
+than something the model's revision component needs to reproduce
+directly.
+
+![Median absolute delay-1 revision by location, relative to the
+pooled median, computed on the raw wILI (%) scale vs the fourth-root
+modelling scale; the location spread compresses but the same two
+locations stay the extremes on both scales (validation + history
+only)](figures/15_backfill_scale.png)
+
+Recomputing each location's median absolute delay-1 revision (same
+`rev1` sample as above) in fourth-root units, relative to the pooled
+fourth-root median: the location-to-location spread compresses from
+a 13.8x range on the raw scale (0.32x to 4.46x the pooled median) to
+a 7.1x range on the fourth-root scale (0.47x to 3.35x).
+So roughly half of the extreme raw-scale spread is a scale artefact
+of working in percentage points, but not all of it: Region 2 and
+Region 9 remain the two most heavily revised locations by a wide
+margin on *either* scale (raw 4.46x/3.61x, fourth-root 3.35x/3.19x),
+so a genuine, substantial location-varying revision-scale term is
+still needed even on the modelling scale, just less extreme than the
+raw numbers alone would suggest.
+A few mid-pack locations swap places moving to fourth-root (Region 6
+drops from 0.98x to 0.55x since it has a high baseline wILI that
+fourth-root compresses more; Region 1, Region 7 and Region 10 rise
+slightly from below 1x to around 1x-1.2x since their lower baseline
+values are compressed less), so the raw-scale ranking is not simply
+preserved in the middle of the distribution, only at the extremes.
+
 ## Implications for the model
 
 - Do not use a monotonic reporting-CDF backfill (e.g. a plain
@@ -254,6 +294,14 @@ Region 4.
 - A `Dmax` of ~10-15 weeks captures nearly all revision mass; a
   smaller `Dmax` (contract default 6) will still catch the bulk but
   will miss a real tail — worth testing sensitivity to `Dmax`.
+- If the backfill component is fit on the fourth-root (or other
+  transformed) scale rather than raw percentage points, expect the
+  location-varying revision-scale spread to compress from ~14x to
+  ~7x, but not disappear: Region 2 and Region 9 stay the two most
+  heavily revised locations on either scale, so a location-varying
+  revision-scale parameter is still needed on the modelling scale,
+  just calibrated to a smaller range than the raw-percentage numbers
+  in this report would suggest if used directly.
 - Partially pool the delay-indexed revision profile across
   locations (means differ more than an order of magnitude and can
   differ in sign) and allow some time variation (both magnitude and,

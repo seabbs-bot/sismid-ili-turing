@@ -94,6 +94,45 @@ these are genuinely separate axes of cross-location structure worth
 tracking independently rather than assuming one location is simply
 "the odd one out" across the board.
 
+(Raw peak *height*, rather than amplitude, is not tested separately:
+because each location's off-season baseline is season-invariant,
+adding it to every season's amplitude cannot change a correlation
+across seasons, so peak-height correlation is mathematically
+identical to the amplitude correlation above — a genuinely redundant
+check, not a new one.)
+
+## Correlation of season duration: a third, and much weaker, shared-year test
+
+Completing the picture (amplitude mean r=0.68, onset-week mean
+r=0.24 in [[03-seasonality]]): season *duration* (offset minus
+onset, same definitions as [[03-seasonality]]) correlated across
+locations for the 13 training-set seasons.
+
+![Cross-location correlation of season duration (left), and each
+location's duration by season (right, `US National` in black);
+duration is close to uncorrelated across locations on average, the
+weakest of the three shared-year tests (validation + history
+only)](figures/14_duration_correlation.png)
+
+Off-diagonal duration correlation is mean **0.06** (range -0.65 to
+0.83) — essentially no shared signal on average, clearly weaker than
+both onset timing (0.24) and amplitude (0.68).
+A few location pairs do correlate strongly (`US National`-Region 1:
+0.83, Region 1-Region 6: 0.66, Region 5-Region 6: 0.61), but just as
+many pairs are near zero or negative (Region 8-Region 10: -0.65,
+Region 3-Region 9: -0.20), so there is no consistent duration
+"severity year" the way there is for amplitude.
+This is plausible mechanically: duration is the difference of two
+already-noisy heuristic-based measurements (onset and offset), so
+its own measurement noise compounds, and onset timing itself was
+already the weaker of the first two shared-year tests.
+Taken together, the three checks form a clear ordering: **severity
+(amplitude) is a strong shared-year property, onset timing is a
+weak one, and duration is essentially independent per location** —
+a useful hierarchy for deciding which season-level features can
+share a random effect across locations and which need to stay
+per-location.
+
 ## Implications for the model
 
 - The moderate, uneven, but genuinely non-zero correlation of
@@ -130,3 +169,10 @@ tracking independently rather than assuming one location is simply
   Region 9's amplitude is the one clearly under-coupled to the rest
   (0.25-0.59 with other locations) and may need its own, looser
   severity-year term.
+- Do not extend the shared season-level effect to duration: at mean
+  r=0.06, duration behaves like an independent per-location,
+  per-season draw, not a property with a meaningful shared
+  component.
+  If the model derives an implied season duration from its onset and
+  offset dynamics (rather than fitting duration directly), no
+  cross-location sharing is needed there, unlike for amplitude.

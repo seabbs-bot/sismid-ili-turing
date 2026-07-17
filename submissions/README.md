@@ -27,18 +27,22 @@ Closed (not shipped): #71 (Fourier overwrote the baseline and scored worse,
 
 | Variant | Val WIS (mean / sd) | vs ar6bf 0.359 |
 |---|---|---|
-| AR(12) + backfill | 0.3518 / 0.451 | −2.0% (best analytic so far) |
-| AR(8) + backfill | 0.3525 / 0.445 | −1.9% (lower SD) |
-| Backfill: multiplicative, w6, per-loc median | 0.3586 / 0.449 | ≈ (best backfill form) |
-| Analytic partial pooling (fullpool, w0.5) | 0.3643 / 0.460 | worse (+1.6%); pooling alone ~1% |
-| pooled-seasonal + backfill (+ pooling) | pending | target |
-| differencing + seasonality + backfill | pending | flagged front-runner |
+| **WIS-weighted ensemble** (climatology + ar6 + ar6bf + ses) | **0.294** / 0.341 | **−18%** (best overall, lowest SD) |
+| **Seasonal climatology + backfill** | **0.3004** / 0.389 | **−16%** (clean seasonal+backfill) |
+| Pooled-seasonal + AR + backfill | 0.3049 / 0.387 | −15% |
+| Combo (AR + backfill + seasonal grid) | 0.3349 / 0.420 | −7% |
+| AR(12) + backfill | 0.3518 / 0.451 | −2% |
+| Backfill: multiplicative, w6, per-loc median | 0.3586 / 0.449 | ≈ |
+| ETS/alternatives (best) | 0.3798 / 0.415 | worse |
+| Analytic partial pooling (fullpool, w0.5) | 0.3643 / 0.460 | +1.6%; pooling alone ~1% |
 
-Findings so far: **backfill** is the biggest analytic lever (~2.4%), **higher AR
-order** adds another ~2%, **partial pooling** is real but modest (~1%, less than
-backfill). We are **holding the submission** until a **seasonality + backfill**
-model (pooling/differencing on top) beats the current best 0.3518 — seasonality
-must be in the shipped model.
+Findings: **seasonality + backfill is the winner** — a shared pooled/climatology
+seasonal shape + the backfill correction cuts WIS ~16% (0.359 → 0.30), far more than
+AR order or pooling alone, and an ensemble of the seasonal+simple models does best
+(0.294, lowest variance). Confirms: backfill is the biggest single lever (~2.4%),
+seasonality (pooled, not per-location Fourier) adds a large further gain, partial
+pooling is modest (~1%). **Round submission: the ensemble / seasonal+backfill model
+(~0.294–0.30).**
 
 ## Method notes
 

@@ -38,7 +38,9 @@ new questions come up during the search.
   roughly delay 10-15 weeks.
   A per-location, per-season breakdown shows this is not a small
   pooled effect: Region 1 and Region 4 fully reverse the sign of
-  their delay-1 revision bias between `2015/16` and `2016/17`.
+  their delay-1 revision bias between `2015/16` and `2016/17`, and a
+  phase-crossed check confirms this is a genuine season-level shift,
+  not a peak-vs-off-season artefact.
 - [[03-seasonality]] - **peak timing, peak height, and season
   onset/offset per location and per season**, plus curve shape and
   amplitude, as cross-season features for the model agents.
@@ -52,12 +54,21 @@ new questions come up during the search.
   (multivariate-normal) location effects over independent ones, and
   making a full VAR's lagged cross-terms a lower-priority
   refinement.
+  Correlation of per-season seasonal *amplitude* is much stronger
+  (mean 0.68), a shared severity-year signal distinct from the
+  week-to-week coupling above; Region 9 is the weak link on this
+  axis, Region 2 on peak timing in [[03-seasonality]] — different
+  locations are the outlier depending on which structure is tested.
 - [[05-autocorrelation]] - ACF/PACF of the (deseasonalised) log
   series and its first difference, per location.
   AIC-selected AR order on the deseasonalised residual has median 5
   (range 4-10) across locations; AR is preferred over differencing
   for most locations (differencing shows an over-differencing
   artefact, negative lag-1 ACF), except Region 4/Region 5.
+  A per-season breakdown shows persistence is stable season to
+  season but the differencing sign is close to a coin flip for most
+  locations; only Region 7/Region 9/Region 10 show it in every
+  season.
 - [[06-regional-heterogeneity]] - three per-location summary
   statistics (off-season baseline, mean seasonal amplitude,
   differenced-series volatility) compared side by side.

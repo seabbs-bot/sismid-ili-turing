@@ -55,6 +55,45 @@ throughout, shared seasonality) vs week-to-week changes (right,
 moderate and uneven once
 differenced)](figures/04_cross_location_correlation.png)
 
+## Correlation of seasonal amplitude: a shared severity-year effect
+
+The two correlation types above are both computed on the weekly
+series (levels, then differences).
+This section asks a season-level version of the same question: is a
+season that is unusually severe (high amplitude) at one location
+also unusually severe elsewhere, using the per-season amplitude
+(season peak minus that location's own off-season baseline, as
+defined in [[03-seasonality]] and [[06-regional-heterogeneity]])
+correlated pairwise across the 13 training-set seasons.
+
+![Cross-location correlation of per-season seasonal amplitude
+(left), and each location's amplitude (z-scored) plotted against
+the cross-location mean amplitude for that season (right); a
+moderate-to-strong shared severity-year signal, clearest for the
+larger/central regions and weakest for Region 9 (validation +
+history only, n=13 seasons per
+pair)](figures/11_amplitude_correlation.png)
+
+Off-diagonal amplitude correlation is mean 0.68, range 0.25
+(Region 2-Region 9) to 0.94 (Region 5-`US National`,
+Region 6-`US National`) — noticeably **stronger** than the
+differenced weekly-series correlation above (mean 0.24), i.e. the
+shared signal across locations is much more visible at the level of
+"how bad was this whole season" than at the level of "did this
+specific week move together".
+`US National`'s amplitude correlates 0.72-0.94 with every region
+except Region 9 (0.43) and Region 10 (0.60), so most seasons that
+are severe nationally are severe at nearly every region too, with
+Region 9 standing out as the location whose severity is least
+coupled to the rest.
+This is a different weak link from the peak-*timing* correlation in
+[[03-seasonality]], where Region 2 was the outlier (0.37) and
+Region 9 was only mildly weak (~0.61): a location can be
+well-synchronised on severity but not on timing, or vice versa, so
+these are genuinely separate axes of cross-location structure worth
+tracking independently rather than assuming one location is simply
+"the odd one out" across the board.
+
 ## Implications for the model
 
 - The moderate, uneven, but genuinely non-zero correlation of
@@ -79,3 +118,15 @@ differenced)](figures/04_cross_location_correlation.png)
   -`2016/17`); re-check them if the training window is later extended
   with more history, but never by drawing on the three held-out test
   seasons before final evaluation.
+- The seasonal-amplitude correlation is materially stronger (mean
+  0.68) than the differenced weekly-series correlation (mean 0.24)
+  above, so a season-level shared severity effect (e.g. a
+  season-level random effect on amplitude, correlated or shared
+  across locations, on top of the per-location amplitude scaling
+  already noted in [[03-seasonality]]) is worth adding as a
+  candidate structure alongside the week-to-week location
+  correlation, not as a substitute for it — they capture different
+  parts of the cross-location coupling.
+  Region 9's amplitude is the one clearly under-coupled to the rest
+  (0.25-0.59 with other locations) and may need its own, looser
+  severity-year term.

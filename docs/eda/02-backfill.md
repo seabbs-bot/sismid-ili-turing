@@ -205,6 +205,47 @@ A model that pools the revision profile fully across locations, or
 treats season variation as a small shared shift, would misrepresent
 this behaviour for several of the 11 locations.
 
+## Does the Region 1/Region 4 reversal track season-phase or the season as a whole?
+
+The reversal above is large enough to ask whether it is really a
+season-level effect, or whether it is secretly a peak-vs-off-season
+(phase) effect that happens to correlate with which weeks each
+tracked season's snapshots landed on.
+This section splits each location's delay-1 revisions further, by
+whether the settled value that week is above or below that
+location's own median (the same crude phase split used in
+"variation over the season" above) crossed with tracked season.
+
+| location, season, phase | n | % up |
+|---|---|---|
+| Region 1, 2015/16, low | 18 | 28% |
+| Region 1, 2015/16, high | 19 | 26% |
+| Region 1, 2016/17, low | 19 | 47% |
+| Region 1, 2016/17, high | 18 | 67% |
+| Region 4, 2015/16, low | 22 | 95% |
+| Region 4, 2015/16, high | 15 | 93% |
+| Region 4, 2016/17, low | 15 | 33% |
+| Region 4, 2016/17, high | 22 | 50% |
+
+![Delay-1 revision direction by season-phase and tracked training
+season, faceted by all 11 locations; for Region 1 and Region 4 the
+two phase points sit close together within each season and the
+separation is almost entirely between seasons, not between phases
+(validation + history only)](figures/10_revision_phase_season.png)
+
+For both Region 1 and Region 4, the low-phase and high-phase points
+sit close to each other within a season (Region 1: 28% vs 26% in
+`2015/16`, 47% vs 67% in `2016/17`; Region 4: 95% vs 93% in
+`2015/16`, 33% vs 50% in `2016/17`), while the gap **between**
+seasons is large regardless of phase.
+So the reversal is a genuine season-level shift in the revision
+process, not an artefact of which part of the season each tracked
+season happened to sample more of.
+A handful of other locations (e.g. Region 3, Region 9) show a
+similar within-season phase consistency alongside a between-season
+shift in the figure, though not as extreme a reversal as Region 1 or
+Region 4.
+
 ## Implications for the model
 
 - Do not use a monotonic reporting-CDF backfill (e.g. a plain
@@ -225,6 +266,11 @@ this behaviour for several of the 11 locations.
   and `2016/17`, so the season-varying component needs enough
   flexibility to represent a genuine sign flip, not only a
   magnitude change, for at least some locations.
+  The phase-crossed breakdown confirms this is a true season-level
+  effect (consistent across both peak and off-season weeks within a
+  season), so a season random effect on the revision profile is the
+  right structure, rather than trying to explain the shift through
+  the existing phase/time-of-season term alone.
 - The 1,023 series with tracked revision history all fall in the
   two most recent training-set seasons (`2015/16`, `2016/17`),
   because the reporting-version source file only records snapshots

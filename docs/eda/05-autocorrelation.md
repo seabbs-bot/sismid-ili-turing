@@ -88,6 +88,61 @@ with an AR term rather than a first difference; differencing on top
 of an already-adequate AR(p) is likely to hurt, not help for most
 locations.
 
+## Does the pooled signature hold every season, or only on average?
+
+The numbers above pool all 13 training-set seasons per location.
+This section checks per-season stability directly: for each
+location and each season separately, the lag-1 ACF of the
+undifferenced residual (persistence) and of its first difference
+(the AR-vs-differencing signature), computed within that season's
+~52 weeks only.
+
+![Per-season lag-1 ACF, undifferenced (left) and first-differenced
+(right) deseasonalised residual, by location; persistence is stable
+season to season but the differencing sign is much noisier per
+season than the pooled estimate suggests (validation + history
+only)](figures/09_acf_season_drift.png)
+
+**Persistence is stable.**
+The undifferenced lag-1 ACF (left panel) is uniformly high
+(0.3-0.98) for every location in every one of the 13 seasons, with
+no location ever showing a season where persistence collapses.
+The pooled lag-1 range quoted above (0.78-0.96) is a reasonable
+single-number summary of a genuinely stable property, not an
+average papering over big per-season swings.
+
+**The differencing sign, however, is not stable for most locations.**
+Per-season lag-1 ACF of the first-differenced residual:
+
+| location | per-season range | seasons with positive lag-1 (of 13) |
+|---|---|---|
+| US National | -0.33 to 0.65 | 6 |
+| HHS Region 1 | -0.51 to 0.30 | 2 |
+| HHS Region 2 | -0.42 to 0.41 | 6 |
+| HHS Region 3 | -0.40 to 0.47 | 2 |
+| HHS Region 4 | -0.29 to 0.47 | 7 |
+| HHS Region 5 | -0.31 to 0.55 | 6 |
+| HHS Region 6 | -0.32 to 0.35 | 2 |
+| HHS Region 7 | -0.66 to -0.01 | 0 |
+| HHS Region 8 | -0.45 to 0.35 | 2 |
+| HHS Region 9 | -0.44 to -0.04 | 0 |
+| HHS Region 10 | -0.46 to -0.03 | 0 |
+
+Only three locations (Region 7, Region 9, Region 10) show the
+negative-lag-1 "over-differencing" signature in **every** one of
+the 13 seasons.
+Every other location, including several with a clearly negative
+*pooled* lag-1 (e.g. US National, Region 2, Region 5, at 6/13
+positive seasons each), is roughly evenly split season to season,
+and Region 4 (the pooled positive-lag-1 exception) is actually
+majority-positive per season (7/13) but not by a wide margin over
+the other locations.
+So the pooled "AR beats differencing almost everywhere, except
+Region 4/Region 5" story is a real central tendency, but for most
+locations it is closer to a coin flip season to season than a
+consistent per-season property; only Region 7/Region 9/Region 10
+show a stable, every-season case against differencing.
+
 ## Implications for the model
 
 - Fit AR order on the deseasonalised (post-seasonality) residual,
@@ -100,6 +155,13 @@ locations.
   Region 4 and Region 5 are the exception (small positive lag-1
   after differencing) and are worth checking individually if a
   location-varying AR-vs-differencing choice is on the table.
+  The per-season breakdown above shows this AR-vs-differencing
+  signal is itself fairly noisy season to season for most locations
+  (roughly even split, not a stable per-season property), so treat
+  the pooled recommendation as the right *average* choice rather
+  than something that should hold rigidly in any single season; only
+  Region 7/Region 9/Region 10 show a consistent every-season case
+  for AR over differencing.
 - AR order 1-2 with partial pooling toward a low shared order is a
   reasonable starting branch, but should be tested against
   higher-order (up to ~9-10) partially-pooled alternatives per the

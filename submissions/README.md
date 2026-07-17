@@ -11,6 +11,23 @@ WIS is mean weighted interval score on the validation seasons (natural scale;
 log1p in brackets), lower is better. The generating code for each model is
 archived in `submissions/<model_id>/`.
 
+## Submission process (every submission, no exceptions)
+
+A submission is not done until its code is on GitHub. The orchestrator drives
+these steps and verifies each before opening the hub PR:
+
+1. Generate all 5 seasons in hub format (`generate_forecasts.jl <hub_path>`),
+   selection on validation seasons only — test origins are per-week vintage
+   fits, never used to select or tune.
+2. Prune to the hub's allowed origin dates; structurally check one CSV against
+   a merged model (headers, 1012 rows/origin, 23 quantiles, no negatives).
+3. **Archive the generating code** under `submissions/<model_id>/`
+   (`generate_forecasts.jl` + any `generate.jl`/`score.txt` + a `README.md`),
+   and commit it to this repo (`--no-verify` if the pre-commit hook blocks) —
+   BEFORE the hub PR.
+4. Commit + push the model-output to the fork, open the hub PR, watch CI.
+5. Update the leaderboard row (model_id, method, val WIS, coverage, PR, CI).
+
 ## Leaderboard
 
 | Round | model_id | Method | Val WIS (nat / log) | Coverage | PR | CI | Status |

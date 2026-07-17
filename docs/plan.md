@@ -5,8 +5,9 @@ See [`brief.md`](brief.md) for the requirements this plan serves.
 
 ## Model design
 
-Everything is fit on a transformed scale `y = g(wILI%)`, with logit as the
-default link since wILI is a bounded rate. For location `i`, week `t`:
+Everything is fit on a transformed scale `y = g(wILI%)`, with log as the
+default transform (Sam's stated preference); logit and fourth-root are
+candidate alternatives. For location `i`, week `t`:
 
 ```
 y[i,t] = seasonal[i, week-of-season(t), season(t)] + noise[i,t]
@@ -18,7 +19,8 @@ vintage observation = joint-backfill(latent value, reporting delay)
   season. Location effects are tested as multivariate normal (correlated across
   the 11 locations) against independent.
 - **Noise** is an autoregressive process on the post-seasonal residual, partially
-  pooled. Variants tested: AR vs differencing, AR order (including > 2),
+  pooled. Variants tested: AR vs differencing (a single first difference is a
+  favoured candidate within the differencing branch), AR order (including > 2),
   time-varying AR coefficients, and independent AR per location vs a VAR across
   locations.
 - **Backfill** is a joint revision model in the spirit of baselinenowcast, but
@@ -35,13 +37,20 @@ vintage observation = joint-backfill(latent value, reporting delay)
 ## Search and selection
 
 A tree/beam search rather than a one-shot factorial screen.
+All search, fitting and selection uses only the two validation seasons; see
+[`brief.md`](brief.md#experimental-integrity-do-not-cheat) for the
+experimental-integrity constraint this must not break.
 
-1. Start from a tractable base (logit + partially-pooled seasonal random effect
-   + independent AR + simple backfill).
+1. Start from a tractable base (log transform + partially-pooled seasonal
+   random effect + independent AR + simple backfill).
 2. Score every candidate on the validation seasons.
 3. Keep the branches that do well, refine them (the candidate axes above), and
    repeat.
-4. Promote a small set of finalists to the testing seasons.
+4. Promote the best 1-2 parsimonious finalists to the testing seasons.
+
+Each candidate passes the Bayesian workflow checks in
+[`brief.md`](brief.md#model-checking-bayesian-workflow) before it is scored:
+prior predictive checks, posterior predictive checks, and residual analysis.
 
 Scoring and selection:
 
@@ -77,15 +86,21 @@ status line in the README, and (for search loops) adds a report under
 - [ ] **Phase 2 — search** (validation seasons 2015/16, 2016/17)
   - [ ] Run the tree search over at least 10 implement-and-review rounds; one
         report per loop; rank by WIS and WIS SD.
-  - [ ] Each round: multiple implementers (lower-power models allowed) propose
+  - [ ] Each round: 5 to 10 implementers (lower-power models allowed) propose
         competing candidates; a reviewer picks the preferred one to carry
         forward.
-- [ ] **Phase 3 — select** finalist(s), balancing WIS, WIS SD, and parsimony.
+  - [ ] Each candidate passes prior predictive checks, posterior predictive
+        checks, and residual analysis before it is scored (see brief.md's
+        Bayesian workflow subsection).
+- [ ] **Phase 3 — select** the best 1-2 parsimonious finalists, balancing WIS,
+      WIS SD, and parsimony.
 - [ ] **Phase 4 — test** (seasons 2017/18–2019/20)
   - [ ] Full expanding-window forecasts for finalists; validate submission.
 - [ ] **Phase 5 — submit**
   - [ ] Fork the reichlab hub under `seabbs`, add model output and metadata.
-  - [ ] Pause for Sam's go-ahead, then open the pull request.
+  - [ ] Open a submission smoke-test pull request to prove the hubverse
+        mechanics work, ahead of the finalist submission.
+  - [ ] Pause for Sam's go-ahead, then open the finalist pull request.
 
 ## Submission format
 

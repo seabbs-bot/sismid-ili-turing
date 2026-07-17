@@ -15,6 +15,8 @@ Filled in as each piece lands, so this document tracks what actually exists.
 | WIS scoring helper | todo | natural and log scale, on `ScoringRules.jl` |
 | Base model | todo | Phase 1 |
 | Forecast + hubverse writer | todo | Phase 1 |
+| Bayesian workflow checks | todo | prior/posterior predictive, residuals; per candidate, Phase 2 |
+| Submission smoke-test PR | todo | proves hubverse mechanics ahead of the finalist PR, Phase 5 |
 
 ## Data
 
@@ -48,11 +50,11 @@ origin dates and locations.
 
 ## Workflow
 
-- Parallel subagents run implement-and-review loops, at least 10 rounds. Each
-  round runs several implementers (lower-power models are fine) proposing
-  competing implementations, and a reviewer selects the preferred one. Changes
-  merge to main by pull request or directly, depending on how the agents are
-  coordinated.
+- Parallel subagents run implement-and-review loops, at least 10 rounds, with
+  5 to 10 subagents running per round. Each round runs several implementers
+  (lower-power models are fine) proposing competing implementations, and a
+  reviewer selects the preferred one. Changes merge to main by pull request or
+  directly, depending on how the agents are coordinated.
 - A few core jobs always run regardless of shared-box load; more work spins out
   when there is headroom.
 - Every checkpoint commits and pushes to `seabbs-bot`, updates the README

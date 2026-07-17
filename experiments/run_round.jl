@@ -156,10 +156,11 @@ seasons, returning a results `NamedTuple`. Fast Pathfinder screening
 
 For each `training_splits(season)` split (capped at `max_splits` per season
 when set) it: builds the `ModelData` (`build_model_data` with `Dmax`,
-`transform`, `window_weeks`), fits `build_model(data; transform)`, forecasts
-the hub quantile table from the fit's `generated_draws` via `project`, and
-runs `bayesian_checks`. Any single split that throws is caught and recorded
-(it does not sink the whole candidate).
+`transform`, `window_weeks`), then calls the shared
+[`fit_and_forecast`](@ref) (`src/pipeline.jl`; docs/lessons.md item 1) to
+build, fit and forecast `build_model` via `project`, and runs
+`bayesian_checks` on the returned fit/draws. Any single split that throws is
+caught and recorded (it does not sink the whole candidate).
 
 Scoring uses `compare_scales`, giving mean and SD WIS on BOTH the natural
 scale (the selection metric and its overfitting guard) and the report-only
@@ -213,10 +214,11 @@ function run_candidate(
             try
                 data = build_model_data(split; Dmax=Dmax, transform=transform,
                                         window_weeks=window_weeks)
-                model = build_model(data; transform=transform)
-                fit = fit_pathfinder(model; ndraws=ndraws)
-                gdraws = generated_draws(model, fit)
-                fq = forecast_quantiles(gdraws, data, name; project=project)
+                result = fit_and_forecast(build_model, data, name;
+                                          project=project, ndraws=ndraws,
+                                          transform=transform)
+                fq, model, fit, gdraws =
+                    result.forecast, result.model, result.fit, result.draws
                 push!(tables, fq)
                 push!(bad_draws, _frac_bad_draws(gdraws))
                 bc = bayesian_checks(fit, model, data; ndraws=diag_ndraws,

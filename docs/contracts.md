@@ -19,8 +19,9 @@ module-level types and constants below are visible without importing.
   `"US National"`, `"HHS Region 1"`, …, `"HHS Region 10"`.
 - `TARGET::String = "ili perc"`, `HORIZONS = 1:4`.
 - `to_scale(w, t)`, `from_scale(x, t)` with `t` a transform symbol; wILI CSV
-  values are percentages (0–100). Favoured default `:log`; `:logit`,
-  `:fourthroot`, `:log1p` are candidate alternatives. See `src/core.jl`.
+  values are percentages (0–100). Live default `:fourthroot` (round1's
+  `PRIMARY_TRANSFORM` in `experiments/round1_run.jl`; docs/lessons.md item 7);
+  `:log`, `:logit`, `:log1p` are candidate alternatives. See `src/core.jl`.
 
 ## Experimental integrity (do not cheat)
 
@@ -103,10 +104,15 @@ A tidy `DataFrame` with exactly these columns:
   output_type_id, value`, no `model_id`; verified against the real hist-avg
   files), plus `model-metadata/<model_id>.yml`
   (`team_abbr`, `model_abbr`, `designated_model`).
-- `src/inference.jl`: `fit_pathfinder(model; draws=1000)` and
-  `fit_mcmc(model; samples=1000, chains=2, adtype=AutoMooncake(), cb=nothing)` —
+- `src/inference.jl`: `fit_pathfinder(model; ndraws=1000, nruns=1,
+  rng=Random.default_rng())` and `fit_mcmc(model; nsamples=1000, nchains=2,
+  adtype=Turing.AutoMooncake(), callback=nothing, rng=Random.default_rng())` —
   wrappers with a Turing progress callback for live monitoring.
-- `src/model.jl`: `base_model(d::ModelData)` — the base joint Turing model
-  (partially-pooled week-of-season seasonality, per-location AR(1) residual,
-  non-monotonic delay-indexed backfill revision), returning a model that can be
-  fit and forecast.
+- `src/model.jl`: `base_model(d::ModelData; transform=:log, difference=false)`
+  — the base joint Turing model (partially-pooled week-of-season seasonality,
+  per-location AR(1), or first-differenced, residual, non-monotonic
+  delay-indexed backfill revision). Returns a `NamedTuple` of every derived
+  quantity a forecaster needs (`latent, seasonal, residual, mu0, mu_w, delta,
+  season_eff, phi, sigma_ar, r, r_pop, sigma_obs, transform`), which
+  `generated_draws` (not `posterior_draws`, docs/lessons.md item 2) exposes
+  for forecasting.

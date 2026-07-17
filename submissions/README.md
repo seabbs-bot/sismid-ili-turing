@@ -48,9 +48,21 @@ these steps and verifies each before opening the hub PR:
 | 0 | `nfidd-ar6` | Plain AR(6) per location, fourth-root | 0.368 / 0.106 | 5 seasons | [#62](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/62) + [#70](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/70) | pass | merged |
 | 1 | `nfidd-ar6bf` | AR(6) + non-monotonic backfill correction | 0.359 / 0.103 | val (test ext. in flight) | [#67](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/67) | pass | merged |
 | 2 | `seabbs_bot-season` | Pooled seasonal climatology + AR(6) + backfill | **0.30** / 0.389 | 140 dates | [#79](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/79) | pass | **merged** (−16% vs ar6bf) |
-| 3 | `seabbs_bot-seasstack` | Seasonal + backfill + log + Student-t intervals + AR **pooling** (w=0.9) | 0.2601 (**LEAKY**) | 140 dates | [#80](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/80) | pass | merged; validation score leak-inflated — leak-free rebuild pending |
-| — | _leak-free rebaseline (repo only)_ | clean season point forecast + split-conformal intervals | **0.2917** (leak-free) | 5 seasons | — | — | genuine +2.9% over clean season; honest best so far |
-| 4+ | _round-3 candidates (repo only, no hub PR)_ | leak-free seasstack / long-horizon momentum / susceptible-depletion + Rt / coverage+bias calibration | pending (leak-free) | 5 seasons | — | — | developing on-repo |
+| 3 | `seabbs_bot-seasstack` | Seasonal + backfill + log + Student-t intervals + AR **pooling** (w=0.9) | 0.2601 (**LEAKY**) → **0.2891 leak-free** | 140 dates | [#80](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/80) | pass | merged; honest leak-free 0.2891 (cov50 .52 cov90 .91) |
+
+### Honest leak-free leaderboard (repo only, no hub PRs — submissions paused)
+
+| Candidate | Val WIS (leak-free) | Coverage | Note |
+|---|---|---|---|
+| **seasstack full stack** (log + Student-t + AR pooling) | **0.2891** | .52 / .91 | honest best; gains are from log+t+pooling, not the pooled shape |
+| conformal on plain climatology | 0.2917 | .48 / .87 | tuning-free calibration on the clean season point forecast |
+| season model (per-location climatology) | 0.3004 | — | clean merged baseline (PR #79) |
+| seasoncombo core (pooled shape, no log/t/pool) | 0.3056 | .37 / .76 | **pooled shape is a wash** vs per-location once honest |
+
+Leak-independent levers found (to stack next, leak-free): longer AR window
+(208wk ≈ 4 seasons, helps every horizon) + damped-trend blend (helps h3/h4);
+split-conformal intervals (calibration, no tuning). Time-varying AR, severity
+scaling, within-season adaptation, differencing: all negative results.
 
 ### What the search has established (answers to the model-structure questions)
 

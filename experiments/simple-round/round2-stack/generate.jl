@@ -47,6 +47,19 @@
 # ONLY, against the local hub clone's oracle (docs/contracts.md
 # experimental integrity) -- a tuning sweep, not a submission driver.
 #
+# LEAKAGE FIX (post-hoc): the first version of this file built
+# `build_seasonal_profile`/`build_revision_profile` ONCE from a fixed
+# `season_year <= 2016` cutoff, reused unchanged across every split.
+# For a validation-season split, that cutoff includes THAT SAME
+# season's own future weeks and the entire other validation season --
+# a real leak, since the profile applied to correct/deseasonalize a
+# given origin's data was partly built from data the model could not
+# have seen yet at that origin. Both functions now take the split's own
+# `forecast_origin` and are rebuilt PER SPLIT from only strictly-prior
+# data (`build_forecast_table` does this internally); see their
+# docstrings and `score.txt`'s "leakage fix" section for the honest
+# (higher) mean WIS this produces.
+#
 # LIGHT + ANALYTIC: CSV/DataFrames/Dates/Statistics/Random/
 # LinearAlgebra/Distributions only, no Turing.
 #
@@ -55,10 +68,10 @@
 # writes score.txt alongside this file; does not write a hub submission
 # (no hub_path argument -- exploratory, not a submissions/ candidate).
 # The winning combo, however, IS full-5-season capable
-# (build_forecast_table takes any `seasons` tuple and both AR fitting
-# and simulation are per-split, capped at that split's own forecast
-# origin throughout) -- see `full_stack_forecast` in main(), unused
-# here but there for a submission driver to call with all 5 seasons.
+# (`build_forecast_table` takes any `seasons` tuple, rebuilds both
+# profiles and fits/simulates per split, all capped at that split's own
+# forecast origin throughout) -- a submission driver can call it
+# directly with `seasons=(1,2,3,4,5)`.
 
 using CSV
 using DataFrames
@@ -83,7 +96,6 @@ const WINDOW_WEEKS = 104
 const MIN_SUPPORT = 5           # min sample size per profile bin to trust
 const SMOOTH_WINDOW = 3         # circular smoothing span for the profile
 const VALIDATION_ONLY = (1, 2)
-const MAX_TRAIN_SEASON_YEAR = 2016  # pre-2015 history + validation seasons
 const HUB_PATH = joinpath(PKG_DIR, "scratch-hub")
 
 # Backfill design, identical to seasoncombo's "core" combo.
@@ -103,18 +115,30 @@ const POOL_WEIGHTS = (0.25, 0.5, 0.75, 0.9, 1.0)
 # ---------------------------------------------------------------------
 
 """
-    build_seasonal_profile(hist; transform, max_season_year, min_support,
+    build_seasonal_profile(hist, forecast_origin; transform, min_support,
                             smooth_window) -> Dict{Int,Float64}
 
-Pooled week-of-season climatology on the `transform` scale. Identical in
-design to `experiments/simple-round/seasoncombo/generate.jl`'s function
-of the same name -- see that file for the full derivation.
+Pooled week-of-season climatology on the `transform` scale, rebuilt
+PER SPLIT from only `hist` rows strictly before `forecast_origin` --
+LEAK-FREE (fixed from an earlier version of this file that built one
+profile from a fixed `season_year <= 2016` cutoff regardless of the
+split's own forecast origin, which for a validation-season origin
+included that same season's own future weeks and the other validation
+season -- a real leak inflating the validation score; see
+`experiments/simple-round/round2-stack/score.txt`'s "leakage fix" note).
+Same pooling design as `experiments/simple-round/seasoncombo/
+generate.jl`'s function of the same name (deviation-from-own-mean,
+pooled across all 11 locations, circularly smoothed), restricted to
+`hist.origin_date .< forecast_origin` instead of a fixed year cutoff --
+matching `experiments/simple-round/season/generate.jl`'s
+`build_climatology`'s per-origin discipline (that function's
+single-location analogue), just pooled across locations here.
 """
 function build_seasonal_profile(
-    hist::DataFrame; transform::Symbol, max_season_year::Int,
+    hist::DataFrame, forecast_origin::Date; transform::Symbol,
     min_support::Int, smooth_window::Int,
 )
-    h = hist[season_year.(hist.origin_date) .<= max_season_year, :]
+    h = hist[hist.origin_date .< forecast_origin, :]
     x = to_scale.(h.wili, transform)
     locs = h.location
     woys = week_of_season.(h.origin_date)
@@ -170,19 +194,31 @@ end
 # ---------------------------------------------------------------------
 
 """
-    build_revision_profile(versions; transform, max_delay, min_support,
-                            mode, stat) -> Dict{Tuple{String,Int},Float64}
+    build_revision_profile(versions, forecast_origin; transform, max_delay,
+                            min_support, mode, stat)
+        -> Dict{Tuple{String,Int},Float64}
 
 Empirical per-(location, delay) revision profile on the `transform`
-scale. Identical to seasoncombo's function of the same name with
-`pooled=false` fixed (matches the core combo and seabbs_bot-ar6bf).
+scale, rebuilt PER SPLIT from only `versions` rows with `as_of <
+forecast_origin` -- LEAK-FREE (fixed alongside `build_seasonal_profile`
+above: the earlier fixed `season_year <= 2016` cutoff let a
+validation-season split's revision profile see `as_of` vintages from
+after its own forecast origin, including the settled/final values of
+weeks the split has not reached yet). `settled` is now "the latest
+vintage known as of THIS split's forecast origin" rather than the
+dataset's true final value -- an honest degradation for origin_dates
+close to `forecast_origin` (their true settled value isn't knowable yet
+either), not a leak. Otherwise identical to seasoncombo's function of
+the same name with `pooled=false` fixed (matches the core combo and
+seabbs_bot-ar6bf).
 """
 function build_revision_profile(
-    versions::DataFrame; transform::Symbol, max_delay::Int,
-    min_support::Int, mode::Symbol, stat::Symbol,
+    versions::DataFrame, forecast_origin::Date; transform::Symbol,
+    max_delay::Int, min_support::Int, mode::Symbol, stat::Symbol,
 )
+    vf = versions[versions.as_of .< forecast_origin, :]
     raw = Dict{Tuple{String,Int},Vector{Float64}}()
-    for g in groupby(versions, [:location, :origin_date])
+    for g in groupby(vf, [:location, :origin_date])
         settled_idx = argmax(g.as_of)
         settled = to_scale(g.wili[settled_idx], transform)
         settled_as_of = g.as_of[settled_idx]
@@ -361,13 +397,20 @@ end
 # ---------------------------------------------------------------------
 
 """
-    build_forecast_table(seasons, versions_full, profile; kwargs...)
+    build_forecast_table(seasons, hist, versions_full; kwargs...)
         -> DataFrame
 
 Fit and forecast one point on the stack sweep for every cross-
-validation split of every season in `seasons`: pooled seasonal
-deseasonalization (`profile`, on `transform` scale) + backfill
-correction, then per-location AR(`AR_ORDER`), optionally blended toward
+validation split of every season in `seasons`. LEAK-FREE: the pooled
+seasonal profile and the backfill revision profile are rebuilt FRESH
+for every split from `hist`/`versions_full`, restricted to that split's
+own forecast origin (`build_seasonal_profile`/`build_revision_profile`
+above) -- fixed from an earlier version of this file that built both
+profiles ONCE from a fixed `season_year <= 2016` cutoff, which leaked
+future-within-season and other-validation-season data into every
+validation split's own profile (see those functions' docstrings and
+`score.txt`'s "leakage fix" note). Deseasonalization + backfill
+correction then per-location AR(`AR_ORDER`), optionally blended toward
 a fullpool anchor (`pool_w > 0`) fit on the deseasonalized residuals,
 then simulated forward with either Gaussian or Student-t innovations
 (`innovation`).
@@ -376,10 +419,9 @@ then simulated forward with either Gaussian or Student-t innovations
 `innovation = :gaussian` reproduces the seasonal core's own scheme.
 """
 function build_forecast_table(
-    seasons, versions_full, profile::Dict{Int,Float64};
-    transform::Symbol, backfill_profile::Dict{Tuple{String,Int},Float64},
-    backfill_window::Int=BF_WINDOW, innovation::Symbol=:gaussian,
-    pool_w::Float64=0.0, model_id::String,
+    seasons, hist::DataFrame, versions_full::DataFrame;
+    transform::Symbol, backfill_window::Int=BF_WINDOW,
+    innovation::Symbol=:gaussian, pool_w::Float64=0.0, model_id::String,
 )
     rng = MersenneTwister(SEED)
     rows = DataFrame(
@@ -392,6 +434,16 @@ function build_forecast_table(
             season; allow_test_season=(season in TEST_SEASONS),
         )
         for split in splits
+            forecast_origin = maximum(split.origin_date)
+            profile = build_seasonal_profile(
+                hist, forecast_origin; transform=transform,
+                min_support=MIN_SUPPORT, smooth_window=SMOOTH_WINDOW,
+            )
+            backfill_profile = build_revision_profile(
+                versions_full, forecast_origin; transform=transform,
+                max_delay=backfill_window, min_support=MIN_SUPPORT,
+                mode=BF_MODE, stat=BF_STAT,
+            )
             data = build_model_data(
                 split; Dmax=DMAX, transform=transform,
                 window_weeks=WINDOW_WEEKS, versions=versions_full,
@@ -486,12 +538,11 @@ end
 # Sweep
 # ---------------------------------------------------------------------
 
-function run_combo(label, seasons, versions_full, profile, backfill_profile;
+function run_combo(label, seasons, hist, versions_full;
         transform, innovation, pool_w, truth)
     fc = build_forecast_table(
-        seasons, versions_full, profile; transform=transform,
-        backfill_profile=backfill_profile, innovation=innovation,
-        pool_w=pool_w, model_id=label,
+        seasons, hist, versions_full; transform=transform,
+        innovation=innovation, pool_w=pool_w, model_id=label,
     )
     summ = score_one(fc, truth)
     cov50 = coverage(fc, truth, 0.5)
@@ -511,72 +562,53 @@ function main()
     hist = load_series("flu_data_hhs")
     versions_full = load_series("flu_data_hhs_versions")
     truth = load_oracle(HUB_PATH)
-    training_versions = versions_full[
-        season_year.(versions_full.origin_date) .<= MAX_TRAIN_SEASON_YEAR, :,
-    ]
 
-    # Profile + backfill profile are estimated ONCE PER TRANSFORM (both
-    # scale-dependent), reused across every (innovation, pool_w) combo
-    # on that transform.
-    profiles = Dict{Symbol,Dict{Int,Float64}}()
-    bf_profiles = Dict{Symbol,Dict{Tuple{String,Int},Float64}}()
-    for transform in (:fourthroot, :log)
-        profiles[transform] = build_seasonal_profile(
-            hist; transform=transform, max_season_year=MAX_TRAIN_SEASON_YEAR,
-            min_support=MIN_SUPPORT, smooth_window=SMOOTH_WINDOW,
-        )
-        bf_profiles[transform] = build_revision_profile(
-            training_versions; transform=transform, max_delay=BF_WINDOW,
-            min_support=MIN_SUPPORT, mode=BF_MODE, stat=BF_STAT,
-        )
-    end
-
+    # NOTE (leakage fix): profiles are no longer precomputed once per
+    # transform here -- `build_forecast_table` now rebuilds both the
+    # seasonal and backfill profiles FRESH, per split, restricted to
+    # that split's own forecast origin (see its docstring and
+    # `build_seasonal_profile`/`build_revision_profile` above). `hist`/
+    # `versions_full` are passed through unfiltered; the per-origin
+    # restriction happens inside.
     results = NamedTuple[]
 
     println("=== reproduction check + single-addition ablations ===")
     push!(results, run_combo(
-        "core (fourthroot, reproduce)", VALIDATION_ONLY, versions_full,
-        profiles[:fourthroot], bf_profiles[:fourthroot];
+        "core (fourthroot, reproduce)", VALIDATION_ONLY, hist, versions_full;
         transform=:fourthroot, innovation=:gaussian, pool_w=0.0, truth=truth,
     ))
     push!(results, run_combo(
-        "core+log", VALIDATION_ONLY, versions_full,
-        profiles[:log], bf_profiles[:log];
+        "core+log", VALIDATION_ONLY, hist, versions_full;
         transform=:log, innovation=:gaussian, pool_w=0.0, truth=truth,
     ))
     push!(results, run_combo(
-        "core+tstudent", VALIDATION_ONLY, versions_full,
-        profiles[:fourthroot], bf_profiles[:fourthroot];
+        "core+tstudent", VALIDATION_ONLY, hist, versions_full;
         transform=:fourthroot, innovation=:student_t, pool_w=0.0, truth=truth,
     ))
     push!(results, run_combo(
-        "core+pool(w=0.5)", VALIDATION_ONLY, versions_full,
-        profiles[:fourthroot], bf_profiles[:fourthroot];
+        "core+pool(w=0.5)", VALIDATION_ONLY, hist, versions_full;
         transform=:fourthroot, innovation=:gaussian, pool_w=0.5, truth=truth,
     ))
 
     println("\n=== additions stacked on the log core ===")
     push!(results, run_combo(
-        "log+tstudent", VALIDATION_ONLY, versions_full,
-        profiles[:log], bf_profiles[:log];
+        "log+tstudent", VALIDATION_ONLY, hist, versions_full;
         transform=:log, innovation=:student_t, pool_w=0.0, truth=truth,
     ))
     push!(results, run_combo(
-        "log+pool(w=0.5)", VALIDATION_ONLY, versions_full,
-        profiles[:log], bf_profiles[:log];
+        "log+pool(w=0.5)", VALIDATION_ONLY, hist, versions_full;
         transform=:log, innovation=:gaussian, pool_w=0.5, truth=truth,
     ))
     push!(results, run_combo(
         "log+tstudent+pool(w=0.5)  [full stack]", VALIDATION_ONLY,
-        versions_full, profiles[:log], bf_profiles[:log];
+        hist, versions_full;
         transform=:log, innovation=:student_t, pool_w=0.5, truth=truth,
     ))
 
     println("\n=== pool-weight sensitivity on top of log+tstudent ===")
     for w in POOL_WEIGHTS
         push!(results, run_combo(
-            "log+tstudent+pool(w=$w)", VALIDATION_ONLY, versions_full,
-            profiles[:log], bf_profiles[:log];
+            "log+tstudent+pool(w=$w)", VALIDATION_ONLY, hist, versions_full;
             transform=:log, innovation=:student_t, pool_w=w, truth=truth,
         ))
     end

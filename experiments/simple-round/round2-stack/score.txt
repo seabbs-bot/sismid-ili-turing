@@ -1,76 +1,137 @@
 round 2 stack -- simple-round
 validation seasons (1, 2) only, natural-scale WIS
-runtime: 56.2s
+runtime: 61.9s
 
-round-1 winner (seasoncombo core): mean_wis=0.2781 sd_wis=0.3341 (experiments/simple-round/seasoncombo/score.txt)
+=====================================================================
+LEAKAGE FIX (honest rescore) -- READ THIS FIRST
+=====================================================================
+Both `build_seasonal_profile` and `build_revision_profile` used to be
+built ONCE from a fixed `season_year <= 2016` cutoff and reused across
+every split. For a split whose forecast origin sits INSIDE the
+validation seasons, that cutoff includes THAT SAME season's own future
+weeks and the entire other validation season -- a real leak, not a
+training-window nuance: the profile used to deseasonalize/correct a
+given origin's data was partly built from data the model could not
+have seen yet at that origin. Both functions are now rebuilt PER SPLIT
+from only `origin_date`/`as_of` strictly before that split's own
+forecast origin (see their docstrings above). Every number below is
+from this leak-free rerun; the previous (leaky) numbers are kept only
+for explicit before/after comparison.
+
+Honest headline numbers (validation seasons 1,2, natural-scale WIS):
+
+  model                                    mean_wis  sd_wis  cov50  cov90
+  seasoncombo core, LEAK-FREE (this run)     0.3056  0.3668  0.371  0.756
+  full stack, LEAK-FREE (this run, winner)   0.2891  0.2987  0.521  0.914
+  ------------------------------------------------------------------
+  seasoncombo core, LEAKY (round 1 headline) 0.2781  0.3341    --     --
+  full stack, LEAKY (round 2 original)       0.2601  0.2587  0.565  0.943
+  season model (per-location climatology,
+    leak-free by construction, see
+    experiments/simple-round/season/score.txt) 0.3004  0.3890    --     --
+
+Reading this table:
+  - The leak inflated BOTH the round-1 core and this round's stack by
+    a similar amount in absolute terms (core: 0.2781 -> 0.3056, +9.9%;
+    full stack: 0.2601 -> 0.2891, +11.2%) -- expected, since both share
+    the same profile-building code and the same validation-season
+    splits are most exposed to it.
+  - The seasoncombo "pooled across 11 locations" seasonal core, once
+    honestly scored, is actually SLIGHTLY WORSE on mean WIS than the
+    simpler single-location `season` climatology model that was always
+    leak-free (0.3056 vs 0.3004) -- though with a lower SD (0.3668 vs
+    0.3890). Round 1's conclusion that pooling the seasonal shape
+    across locations beats the per-location climatology was itself
+    built on the leaky comparison; that conclusion does not survive
+    the fix on mean WIS alone, and is genuinely a wash considering the
+    SD tradeoff.
+  - The three stacked additions (log, Student-t intervals, AR pooling)
+    are NOT an artifact of the leak: stacked on the now-leak-free core,
+    they still take it from 0.3056 to 0.2891, a genuine 5.40% cut, and
+    the full stack beats the leak-free `season` reference (0.3004) by
+    a genuine 3.76%. The leak inflated the ABSOLUTE numbers but did not
+    manufacture the relative ranking of core vs core+additions.
+  - This also means the full stack, now honestly scored at 0.2891, is
+    (marginally) the best validation-season number produced in this
+    repo's simple-round work so far, edging out the separately-reported
+    leak-free "season + split-conformal" rebaseline (0.2917, ~0.89%
+    better) and clearly ahead of the leak-free `season` climatology-
+    backfill model (0.3004, ~3.76% better).
+=====================================================================
+
+round-1 winner (seasoncombo core), LEAKY headline number: mean_wis=0.2781 sd_wis=0.3341 (experiments/simple-round/seasoncombo/score.txt, not leak-free -- see above)
 
 === reproduction check + single-addition ablations ===
-  core (fourthroot, reproduce)     mean_wis=0.2781 sd_wis=0.3341 cov50=0.404 cov90=0.783
-  core+log                         mean_wis=0.271 sd_wis=0.2973 cov50=0.434 cov90=0.821
-  core+tstudent                    mean_wis=0.2716 sd_wis=0.2944 cov50=0.524 cov90=0.903
-  core+pool(w=0.5)                 mean_wis=0.2709 sd_wis=0.3273 cov50=0.415 cov90=0.791
+  core (fourthroot, reproduce)     mean_wis=0.3056 sd_wis=0.3668 cov50=0.371 cov90=0.756
+  core+log                         mean_wis=0.3041 sd_wis=0.3504 cov50=0.398 cov90=0.79
+  core+tstudent                    mean_wis=0.2955 sd_wis=0.3244 cov50=0.485 cov90=0.885
+  core+pool(w=0.5)                 mean_wis=0.2988 sd_wis=0.3607 cov50=0.379 cov90=0.763
 
 === additions stacked on the log core ===
-  log+tstudent                               mean_wis=0.2697 sd_wis=0.261 cov50=0.55 cov90=0.937
-  log+pool(w=0.5)                            mean_wis=0.2625 sd_wis=0.2933 cov50=0.442 cov90=0.826
-  log+tstudent+pool(w=0.5)  [full stack]     mean_wis=0.2618 sd_wis=0.258 cov50=0.556 cov90=0.938
+  log+tstudent                               mean_wis=0.2986 sd_wis=0.3086 cov50=0.521 cov90=0.914
+  log+pool(w=0.5)                            mean_wis=0.296 sd_wis=0.3421 cov50=0.404 cov90=0.796
+  log+tstudent+pool(w=0.5)  [full stack]     mean_wis=0.2909 sd_wis=0.3012 cov50=0.518 cov90=0.914
 
 === pool-weight sensitivity on top of log+tstudent ===
-  log+tstudent+pool(w=0.25)        mean_wis=0.2649 sd_wis=0.2587 cov50=0.556 cov90=0.938
-  log+tstudent+pool(w=0.5)         mean_wis=0.2618 sd_wis=0.258 cov50=0.556 cov90=0.938
-  log+tstudent+pool(w=0.75)        mean_wis=0.2604 sd_wis=0.2582 cov50=0.557 cov90=0.941
-  log+tstudent+pool(w=0.9)         mean_wis=0.2601 sd_wis=0.2587 cov50=0.565 cov90=0.943
-  log+tstudent+pool(w=1.0)         mean_wis=0.2602 sd_wis=0.259 cov50=0.563 cov90=0.944
+  log+tstudent+pool(w=0.25)        mean_wis=0.2939 sd_wis=0.3041 cov50=0.515 cov90=0.913
+  log+tstudent+pool(w=0.5)         mean_wis=0.2909 sd_wis=0.3012 cov50=0.518 cov90=0.914
+  log+tstudent+pool(w=0.75)        mean_wis=0.2894 sd_wis=0.2994 cov50=0.517 cov90=0.912
+  log+tstudent+pool(w=0.9)         mean_wis=0.2891 sd_wis=0.2987 cov50=0.521 cov90=0.914
+  log+tstudent+pool(w=1.0)         mean_wis=0.2891 sd_wis=0.2983 cov50=0.525 cov90=0.913
 
 === ranked (all combos) ===
-  log+tstudent+pool(w=0.9)                   mean_wis=0.2601 sd_wis=0.2587
-  log+tstudent+pool(w=1.0)                   mean_wis=0.2602 sd_wis=0.259
-  log+tstudent+pool(w=0.75)                  mean_wis=0.2604 sd_wis=0.2582
-  log+tstudent+pool(w=0.5)  [full stack]     mean_wis=0.2618 sd_wis=0.258
-  log+tstudent+pool(w=0.5)                   mean_wis=0.2618 sd_wis=0.258
-  log+pool(w=0.5)                            mean_wis=0.2625 sd_wis=0.2933
-  log+tstudent+pool(w=0.25)                  mean_wis=0.2649 sd_wis=0.2587
-  log+tstudent                               mean_wis=0.2697 sd_wis=0.261
-  core+pool(w=0.5)                           mean_wis=0.2709 sd_wis=0.3273
-  core+log                                   mean_wis=0.271 sd_wis=0.2973
-  core+tstudent                              mean_wis=0.2716 sd_wis=0.2944
-  core (fourthroot, reproduce)               mean_wis=0.2781 sd_wis=0.3341
+  log+tstudent+pool(w=0.9)                   mean_wis=0.2891 sd_wis=0.2987
+  log+tstudent+pool(w=1.0)                   mean_wis=0.2891 sd_wis=0.2983
+  log+tstudent+pool(w=0.75)                  mean_wis=0.2894 sd_wis=0.2994
+  log+tstudent+pool(w=0.5)  [full stack]     mean_wis=0.2909 sd_wis=0.3012
+  log+tstudent+pool(w=0.5)                   mean_wis=0.2909 sd_wis=0.3012
+  log+tstudent+pool(w=0.25)                  mean_wis=0.2939 sd_wis=0.3041
+  core+tstudent                              mean_wis=0.2955 sd_wis=0.3244
+  log+pool(w=0.5)                            mean_wis=0.296 sd_wis=0.3421
+  log+tstudent                               mean_wis=0.2986 sd_wis=0.3086
+  core+pool(w=0.5)                           mean_wis=0.2988 sd_wis=0.3607
+  core+log                                   mean_wis=0.3041 sd_wis=0.3504
+  core (fourthroot, reproduce)               mean_wis=0.3056 sd_wis=0.3668
 
-=== marginal contribution on top of the core (fourthroot, mean_wis=0.2781) ===
-  core+log             delta=0.0071 (2.55%)
-  core+tstudent        delta=0.0065 (2.35%)
-  core+pool(w=0.5)     delta=0.0072 (2.58%)
+=== marginal contribution on top of the core (fourthroot, mean_wis=0.3056) ===
+  core+log             delta=0.0015 (0.48%)
+  core+tstudent        delta=0.0101 (3.31%)
+  core+pool(w=0.5)     delta=0.0068 (2.21%)
 
-=== marginal contribution on top of the log core (mean_wis=0.271) ===
-  log+tstudent                               delta=0.0013 (0.48%)
-  log+pool(w=0.5)                            delta=0.0085 (3.13%)
-  log+tstudent+pool(w=0.5)  [full stack]     delta=0.0092 (3.38%)
+=== marginal contribution on top of the log core (mean_wis=0.3041) ===
+  log+tstudent                               delta=0.0055 (1.81%)
+  log+pool(w=0.5)                            delta=0.0081 (2.67%)
+  log+tstudent+pool(w=0.5)  [full stack]     delta=0.0131 (4.32%)
 
 === winner: log+tstudent+pool(w=0.9) ===
-mean_wis=0.2601 sd_wis=0.2587 cov50=0.565 cov90=0.943
-vs round-1 core (0.2781): 0.018 (6.47%)
+mean_wis=0.2891 sd_wis=0.2987 cov50=0.521 cov90=0.914
+vs round-1's LEAKY headline (0.2781): -0.011 (-3.96%) -- NOT a fair
+  comparison (leak-free vs leaky); see the "LEAKAGE FIX" section at the
+  top of this file for the fair, same-run comparison: leak-free winner
+  (0.2891) vs leak-free core (0.3056) = -0.0165 (-5.40%), a genuine
+  improvement.
 
 winner mean WIS by location:
-  HHS Region 8     0.1533 (n=236)
-  US National      0.1757 (n=236)
-  HHS Region 1     0.1774 (n=236)
-  HHS Region 5     0.1831 (n=236)
-  HHS Region 10    0.2315 (n=236)
-  HHS Region 9     0.2344 (n=236)
-  HHS Region 3     0.2603 (n=236)
-  HHS Region 4     0.2896 (n=236)
-  HHS Region 7     0.3034 (n=236)
-  HHS Region 6     0.3474 (n=236)
-  HHS Region 2     0.505 (n=236)
+  HHS Region 8     0.1594 (n=236)
+  HHS Region 1     0.1863 (n=236)
+  HHS Region 5     0.1933 (n=236)
+  US National      0.1994 (n=236)
+  HHS Region 10    0.2333 (n=236)
+  HHS Region 3     0.2649 (n=236)
+  HHS Region 7     0.3071 (n=236)
+  HHS Region 4     0.3217 (n=236)
+  HHS Region 6     0.3593 (n=236)
+  HHS Region 9     0.364 (n=236)
+  HHS Region 2     0.5917 (n=236)
 
 winner mean WIS by season:
-  season 1: mean_wis=0.2377 sd_wis=0.1903 (n=1320)
-  season 2: mean_wis=0.2833 sd_wis=0.3125 (n=1276)
+  season 1: mean_wis=0.2694 sd_wis=0.241 (n=1320)
+  season 2: mean_wis=0.3095 sd_wis=0.3473 (n=1276)
 
 winner mean WIS by horizon:
-  h=1: 0.1943 (n=649)
-  h=2: 0.2414 (n=649)
-  h=3: 0.2873 (n=649)
-  h=4: 0.3176 (n=649)
+  h=1: 0.2245 (n=649)
+  h=2: 0.2716 (n=649)
+  h=3: 0.3154 (n=649)
+  h=4: 0.345 (n=649)
 
 Not stacked here: the log_r9_sqrt refinement (experiments/simple-round/transform, a further ~0.2% on top of plain log in the plain-AR family) -- the pooled seasonal profile mixes deviations from all 11 locations in one shared shape, and a per-location modelling scale override would need either a separate single-location climatology for Region 9 or a scale-aware re-derivation of the pooling step; left as follow-up given the small expected effect size relative to the three additions above.

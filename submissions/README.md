@@ -17,12 +17,28 @@ archived in `submissions/<model_id>/`.
 |---|---|---|---|---|---|---|---|
 | 0 | `nfidd-ar6` | Plain AR(6) per location, fourth-root | 0.368 / 0.106 | 5 seasons | [#62](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/62) + [#70](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/70) | pass | merged |
 | 1 | `nfidd-ar6bf` | AR(6) + non-monotonic backfill correction | 0.359 / 0.103 | val (test ext. in flight) | [#67](https://github.com/reichlab/sismid-ili-forecasting-sandbox/pull/67) | pass | merged |
-| 2 | _wide simple round winner_ | tbd (AR order / backfill / seasonal / VAR / pooling / mixtures) | tbd | 5 seasons | tbd | tbd | in progress |
-| 3 | _seasonal model_ | pooled-seasonal + AR + backfill | tbd | 5 seasons | tbd | tbd | in progress |
+| 2 | _held — improving_ | seasonality + backfill (+ pooling / differencing) | tbd | 5 seasons | tbd | tbd | holding for a seasonal+backfill model that improves on 0.352 |
 | — | `seabbs_bot-round1` (Turing) | Joint partial-pooling Turing model (base-tight) | tbd | 5 seasons | tbd | tbd | scoring |
 
 Closed (not shipped): #71 (Fourier overwrote the baseline and scored worse,
 0.412), #73/#74 (`seabbs_bot-*` duplicated already-merged models).
+
+## Wide simple round — validation WIS (in progress, holding submission)
+
+| Variant | Val WIS (mean / sd) | vs ar6bf 0.359 |
+|---|---|---|
+| AR(12) + backfill | 0.3518 / 0.451 | −2.0% (best analytic so far) |
+| AR(8) + backfill | 0.3525 / 0.445 | −1.9% (lower SD) |
+| Backfill: multiplicative, w6, per-loc median | 0.3586 / 0.449 | ≈ (best backfill form) |
+| Analytic partial pooling (fullpool, w0.5) | 0.3643 / 0.460 | worse (+1.6%); pooling alone ~1% |
+| pooled-seasonal + backfill (+ pooling) | pending | target |
+| differencing + seasonality + backfill | pending | flagged front-runner |
+
+Findings so far: **backfill** is the biggest analytic lever (~2.4%), **higher AR
+order** adds another ~2%, **partial pooling** is real but modest (~1%, less than
+backfill). We are **holding the submission** until a **seasonality + backfill**
+model (pooling/differencing on top) beats the current best 0.3518 — seasonality
+must be in the shipped model.
 
 ## Method notes
 

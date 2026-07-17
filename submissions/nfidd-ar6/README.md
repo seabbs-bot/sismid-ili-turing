@@ -15,6 +15,24 @@ origin.
 No hierarchy, no seasonality term, no backfill model: deliberately
 simple.
 
+For each location $l$, let $y_{l,t} = g(\mathrm{wILI}_{l,t})$ be the
+fourth-root-transformed vintage series.
+The model is an independent AR(6) per location:
+
+$$
+y_{l,t} = c_l + \sum_{k=1}^{6} \phi_{l,k}\, y_{l,t-k} + \varepsilon_{l,t},
+\qquad \varepsilon_{l,t} \sim \mathrm{N}\left(0, \sigma_l^2\right).
+$$
+
+$c_l$, $\phi_{l,1},\ldots,\phi_{l,6}$, and $\sigma_l$ are fit by OLS
+separately for each location, on that split's own
+`window_weeks=104` history.
+Forecasts simulate 1000 sample paths forward from this recursion,
+feeding each simulated value back in as a lag for later horizons, take
+the 23 hub quantile levels per (location, horizon) across the
+simulated paths, and back-transform with $g^{-1}(x) = x^4$, clamped at
+0.
+
 `generate_forecasts_fourier.jl` (**built, validated, scored -- not
 submitted**): the same AR(6) design with 3 added Fourier harmonic
 pairs (sin/cos) of week-of-season, 52-week period, per location.

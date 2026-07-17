@@ -37,17 +37,35 @@ the correction is the median of `fourthroot(settled) -
 fourthroot(vintage)` across matching `(location, origin_date)` pairs,
 where `settled` is the value at that pair's largest tracked `as_of`
 (the settled-value proxy used throughout
-[docs/eda/02-backfill.md](../../docs/eda/02-backfill.md)). This is
-deliberately not a monotonic reporting-CDF completion factor:
+[docs/eda/02-backfill.md](../../docs/eda/02-backfill.md)):
+
+$$
+r_{l,d} = \mathrm{median}\left\{\, g(\text{settled}) - g(\text{vintage}) \,\right\},
+\qquad d = \mathrm{weeks}(\text{as\_of} - \text{origin\_date}),
+$$
+
+taken over every `(location, origin_date)` pair recorded at delay
+$d$, where $g$ is the fourth-root transform.
+The vintage series is corrected before fitting, for delays inside the
+8-week cutoff:
+
+$$
+\tilde y_{l,t} = y_{l,t} + r_{l,\,d(t)} \cdot \mathbb{1}\!\left[0 \le d(t) \le 8\right],
+$$
+
+and the AR(6) of `nfidd-ar6` is then fit to $\tilde y_{l,t}$ in place
+of $y_{l,t}$.
+This is deliberately not a monotonic reporting-CDF completion factor:
 docs/eda/02-backfill.md shows revisions change sign across both delay
 and location (e.g. HHS Region 2 revises up ~84% of the time at delay
-1, HHS Region 9 revises down ~61% of the time), so a location-varying
-empirical profile is used instead of a single shared curve. The
-profile is estimated only from training-set origin dates (pre-2015
-history plus the two validation seasons); no test-season data is used
-anywhere, and applying it only ever looks at `as_of <= forecast_origin`
-(enforced inside `build_model_data`), so no future revision leaks into
-a split's own correction.
+1, HHS Region 9 revises down ~61% of the time, so $r_{l,d}$ can be
+positive for one location and negative for another at the same $d$),
+so a location-varying empirical profile is used instead of a single
+shared curve. The profile is estimated only from training-set origin
+dates (pre-2015 history plus the two validation seasons); no
+test-season data is used anywhere, and applying it only ever looks at
+`as_of <= forecast_origin` (enforced inside `build_model_data`), so no
+future revision leaks into a split's own correction.
 
 Everything else (AR order, transform, path simulation, quantile
 levels, seed) is identical to `nfidd-ar6`, isolating the effect of the

@@ -47,6 +47,10 @@ new questions come up during the search.
   Peak timing SD is ~5-8 weeks across seasons and locations,
   supporting a season-varying random-effect seasonal curve over a
   fixed Fourier curve; offset timing is more variable than onset.
+  Onset-week correlation across locations (mean 0.24) is much weaker
+  than the amplitude correlation in [[04-cross-location]] (mean
+  0.68): a severe season tends to be severe everywhere, but does not
+  necessarily start early everywhere.
 - [[04-cross-location]] - correlation of levels and of week-to-week
   changes across the 11 locations, and lead-lag structure.
   Differenced-series correlation is moderate (mean 0.24) and
@@ -76,3 +80,12 @@ new questions come up during the search.
   negatively with baseline (r = -0.63), so smaller locations are
   proportionally noisier week to week, not just scaled-down copies
   of the larger ones.
+- [[07-region9-deepdive]] - collects every passing mention of
+  Region 9 as an outlier (across reports 01, 02, 03, 04, 06) into one
+  place and checks each one directly.
+  Region 9 is a genuine, well-evidenced outlier on transform power
+  (most Poisson-like, `lambda=0.91`) and backfill direction
+  (strongest downward bias after Region 2), but unremarkable on
+  volatility, AR order, differencing stability, onset timing and
+  peak-timing correlation — it needs targeted fixes, not one general
+  "difficult location" mechanism.

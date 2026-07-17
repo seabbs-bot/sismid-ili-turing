@@ -111,6 +111,55 @@ locations, i.e. the season's decline back to baseline is more
 variable in timing than its rise, consistent with a longer, more
 variable tail after the peak than build-up before it.
 
+## Onset/offset shape and cross-location correlation
+
+The SD numbers above summarise onset/offset spread as a single
+number per location; this section checks the pooled shape directly
+(is the spread smooth, or does it hide onset "subtypes"?) and asks
+whether onset timing is a shared year effect the way seasonal
+amplitude was shown to be in [[04-cross-location]].
+
+![Pooled onset/offset week distributions (top) across all 11
+locations x 13 seasons, and cross-location correlation of onset week
+by season (bottom); onset timing correlates with the national
+pattern much more weakly than seasonal amplitude does (validation +
+history only)](figures/13_onset_stability.png)
+
+**Pooled onset (n=143, location x season pairs) is not simply a
+smooth unimodal spread**: mean 11.8, median 12, SD 6.0, but the
+histogram shows a dominant mode at `woy` 12-13 alongside a smaller,
+distinct cluster at `woy` 1-3.
+That early cluster should be treated with some caution rather than
+read as a genuine "early-onset subtype": the season boundary (late
+July, from [[01-series-overview]]) is fixed by the *national*
+off-season minimum, so a location whose own off-season trough falls
+slightly later in the calendar can still show elevated wILI right at
+the start of its new season purely as a heuristic edge effect (a
+carry-over tail from the previous season, not a fresh early rise).
+This is the same "can behave oddly for locations with an
+already-elevated or noisy off-season baseline" caveat already
+flagged above, now visible directly in the pooled histogram.
+Pooled offset (n=143) is more diffusely multimodal (loose clusters
+around `woy` 37-39, 43-44, and 51-52) than onset, consistent with
+offset SD being larger than onset SD at every location in the table
+above.
+
+**Onset timing is a much weaker shared-year signal than seasonal
+amplitude.**
+Cross-location correlation of onset week across the 13 seasons is
+mean 0.24 (range -0.25 to 0.80) — close to the *week-to-week
+differenced-series* correlation in [[04-cross-location]] (mean
+0.24), and much weaker than that report's seasonal-amplitude
+correlation (mean 0.68).
+`US National` onset correlates 0.77-0.80 with the tightly-coupled
+core (Region 1, Region 5) but is essentially uncorrelated with
+Region 7 (-0.08) and weak with Region 10 (0.14) and Region 3 (0.36).
+So a season that is severe nearly everywhere (the amplitude finding)
+does not imply it starts early nearly everywhere: severity and
+onset timing are separate axes of cross-location structure, and
+onset timing in particular looks more like an independent,
+per-location draw than a shared season-level property.
+
 ## Shape of the curve
 
 Pooled national mean wILI by week-of-season is a single smooth
@@ -183,6 +232,23 @@ peak week](figures/03_seasonal_curves.png)
   board; if the model separates a rise phase from a decline phase
   (e.g. asymmetric seasonal curve), allow more flexibility on the
   decline side.
+- Do not use a single shared season-level "early/late year" effect
+  to drive onset timing across all locations: onset-week correlation
+  across locations (mean 0.24) is far weaker than the seasonal
+  amplitude correlation (mean 0.68, [[04-cross-location]]), so onset
+  timing should stay close to an independent, per-location draw
+  (loosely anchored to the national pattern for the tightly-coupled
+  core: Region 1, Region 5) rather than sharing a season random
+  effect the way amplitude plausibly can.
+  Region 7 in particular shows essentially no onset-timing coupling
+  to the national pattern (r=-0.08).
+- The small early-onset cluster in the pooled onset histogram
+  (`woy` 1-3, alongside the dominant `woy` 12-13 mode) is more likely
+  a heuristic edge effect at the season boundary for a handful of
+  location-season pairs than a genuine third seasonal subtype;
+  treat it as a data-quality caveat on the onset/offset heuristic,
+  not as evidence for a distinct early-onset regime to model
+  explicitly.
 - These are full-training-set estimates (13 seasons, still a modest
   n per location); revisit them as the search progresses rather than
   treating them as fixed targets, and never extend this analysis

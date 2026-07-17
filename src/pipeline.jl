@@ -58,7 +58,7 @@ function produce_submission(;
                                     window_weeks=window_weeks)
             model = base_model(data; transform=transform)
             fit = fit_pathfinder(model; ndraws=ndraws)
-            draws = posterior_draws(fit)
+            draws = generated_draws(model, fit)
             fq = forecast_quantiles(draws, data, model_id;
                                     project=base_project)
             push!(tables, fq)

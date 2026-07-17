@@ -20,6 +20,9 @@
 #   FILE_PATH   a single file to check, relative to model-output/, e.g.
 #               "nfidd-seasarpp/2015-11-07-nfidd-seasarpp.csv"; if unset,
 #               every CSV under model-output/<model_id>/ is checked
+#   SEASONS     comma-separated season ids the coverage check expects
+#               forecasts for (default: 1,2, the validation seasons);
+#               skipped entirely when FILE_PATH is set
 #
 # Programmatic use (no environment vars, no exit()):
 #   include("scripts/validate_submission.jl")
@@ -33,6 +36,11 @@ using YAML
 
 const DEFAULT_HUB_PATH =
     joinpath(homedir(), "code", "external", "sismid-ili-forecasting-sandbox")
+
+# This repo's own data/ dir (not the hub clone), for the coverage check's
+# "which origin_dates were WE supposed to produce" side -- see
+# `season_origin_dates` below.
+const REPO_DATA_DIR = joinpath(@__DIR__, "..", "data")
 
 const REQUIRED_COLUMNS = [
     :origin_date, :location, :target, :horizon, :target_end_date,
@@ -74,6 +82,27 @@ function load_hub_config(hub_path::AbstractString)
 
     return HubConfig(origin_dates, locations, horizons, target,
                       quantile_levels)
+end
+
+"""
+    season_origin_dates(season::Int) -> Vector{Date}
+
+Forecast-origin dates (`max(origin_date)` per `.split` group) for
+cross-validation `season`, read directly from this repo's
+`data/flu_data_hhs_tscv_season<season>.csv`. Deliberately reimplemented
+here rather than `using SismidILITuring; training_splits(season)`: this
+script runs in its own small, Turing-free environment (see the file
+header), and pulling in the main package would defeat that. Kept in
+sync by hand with `src/data.jl`'s `training_splits` -- same source
+file, same `.split` grouping, same "latest date in the split" rule.
+"""
+function season_origin_dates(season::Int)::Vector{Date}
+    path = joinpath(REPO_DATA_DIR, "flu_data_hhs_tscv_season$(season).csv")
+    isfile(path) || error("tscv season file not found at $path")
+    df = CSV.read(path, DataFrame)
+    df.origin_date = Date.(df.origin_date)
+    dates = [maximum(g.origin_date) for g in groupby(df, ".split")]
+    return sort(unique(dates))
 end
 
 """
@@ -145,6 +174,24 @@ function check_horizons(df::DataFrame, label::String, cfg::HubConfig)
     bad = unique(filter(h -> !(h in cfg.horizons), df.horizon))
     isempty(bad) && return String[]
     return ["$label: horizon has values outside $(cfg.horizons): $bad"]
+end
+
+"""
+    check_horizon_coverage(df, label, cfg) -> Vector{String}
+
+Unlike [`check_horizons`](@ref) (which flags horizon VALUES outside the
+hub's set), this flags any of the hub's required horizons that are
+wholly ABSENT from `df` -- coverage, not just validity.
+"""
+function check_horizon_coverage(df::DataFrame, label::String, cfg::HubConfig)
+    :horizon in Symbol.(names(df)) || return String[]
+    present = Set(df.horizon)
+    missing_h = sort(collect(setdiff(cfg.horizons, present)))
+    isempty(missing_h) && return String[]
+    return [
+        "$label: missing horizon(s) $missing_h (expected all of " *
+        "$(sort(collect(cfg.horizons))))",
+    ]
 end
 
 function check_origin_date(
@@ -249,11 +296,70 @@ function check_file(path::AbstractString, model_id::AbstractString,
     append!(problems, check_target(df, label, cfg))
     append!(problems, check_locations(df, label, cfg))
     append!(problems, check_horizons(df, label, cfg))
+    append!(problems, check_horizon_coverage(df, label, cfg))
     append!(problems, check_origin_date(df, label, cfg, origin_date))
     append!(problems, check_target_end_date(df, label))
     append!(problems, check_output_type(df, label))
     append!(problems, check_quantile_levels(df, label, cfg))
     append!(problems, check_value(df, label))
+    return problems
+end
+
+"""
+    check_coverage(files, cfg; seasons=(1, 2)) -> Vector{String}
+
+Aggregate, cross-file coverage check for a submission's full set of
+`files`: flags any forecast-origin date the submission should have
+produced (this repo's `training_splits`-equivalent dates for `seasons`,
+via [`season_origin_dates`](@ref)) but did not, and separately flags if
+any such expected date is not even present in the hub's own
+`hub-config/tasks.json` (a data/hub-config drift signal). This checks
+coverage of the submission AS A WHOLE; [`check_file`](@ref)'s checks are
+all per-file.
+"""
+function check_coverage(
+    files::Vector{String}, cfg::HubConfig; seasons=(1, 2),
+)
+    expected = Date[]
+    for season in seasons
+        append!(expected, season_origin_dates(season))
+    end
+    expected = sort(unique(expected))
+
+    produced = Date[]
+    for f in files
+        isfile(f) || continue
+        df = try
+            CSV.read(f, DataFrame)
+        catch
+            continue
+        end
+        :origin_date in Symbol.(names(df)) || continue
+        append!(produced, Date.(df.origin_date))
+    end
+    produced = sort(unique(produced))
+
+    problems = String[]
+    missing_dates = setdiff(expected, produced)
+    if !isempty(missing_dates)
+        push!(
+            problems,
+            "coverage: missing forecast(s) for $(length(missing_dates))/" *
+            "$(length(expected)) expected origin_date(s) (seasons=" *
+            "$(seasons)): $missing_dates",
+        )
+    end
+
+    not_in_hub = setdiff(expected, cfg.origin_dates)
+    if !isempty(not_in_hub)
+        push!(
+            problems,
+            "coverage: $(length(not_in_hub)) expected origin_date(s) " *
+            "are not in the hub's tasks.json at all (data/hub-config " *
+            "drift?): $(sort(collect(not_in_hub)))",
+        )
+    end
+
     return problems
 end
 
@@ -338,10 +444,14 @@ end
 
 """
     validate_submission(model_id; hub_path=DEFAULT_HUB_PATH,
-                         file_path=nothing) -> (ok::Bool, problems)
+                         file_path=nothing, seasons=(1, 2)) ->
+        (ok::Bool, problems)
 
 Check every submission file for `model_id` (or just `file_path` if given)
-against the hub's format rules, and the model's metadata YAML. Returns
+against the hub's format rules, and the model's metadata YAML. When
+checking the whole model_id submission (`file_path === nothing`), also
+runs [`check_coverage`](@ref) against `seasons` (skipped for a single
+`file_path`, since coverage is a whole-submission property). Returns
 whether everything passed and the full list of problems found (empty
 list means a clean pass). Does not read or write anything outside the
 hub clone; never submits or pushes.
@@ -350,6 +460,7 @@ function validate_submission(
     model_id::AbstractString;
     hub_path::AbstractString = DEFAULT_HUB_PATH,
     file_path::Union{AbstractString,Nothing} = nothing,
+    seasons = (1, 2),
 )
     isdir(hub_path) || error("hub not found at $hub_path")
     cfg = load_hub_config(hub_path)
@@ -368,6 +479,10 @@ function validate_submission(
         append!(problems, check_file(f, model_id, cfg))
     end
 
+    if file_path === nothing
+        append!(problems, check_coverage(files, cfg; seasons=seasons))
+    end
+
     return isempty(problems), problems
 end
 
@@ -383,9 +498,15 @@ function main()
     hub_path = hub_path == "" ? DEFAULT_HUB_PATH : hub_path
     file_path = get(ENV, "FILE_PATH", "")
     file_path = file_path == "" ? nothing : file_path
+    seasons_str = get(ENV, "SEASONS", "")
+    seasons = seasons_str == "" ? (1, 2) :
+        Tuple(parse.(Int, split(seasons_str, ",")))
 
-    println("validating '$model_id' against hub at $hub_path")
-    ok, problems = validate_submission(model_id; hub_path, file_path)
+    println("validating '$model_id' against hub at $hub_path " *
+            "(seasons=$seasons)")
+    ok, problems = validate_submission(
+        model_id; hub_path, file_path, seasons,
+    )
 
     println("\n--- validation summary: $model_id ---")
     if ok

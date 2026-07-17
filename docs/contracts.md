@@ -33,6 +33,12 @@ module-level types and constants below are visible without importing.
 - Score against the hub oracle output (settled season values), matching the
   session workflow, so comparisons stay fair against the existing hub models.
 
+Both of the first two rules are enforced in code, not just written down here:
+`training_splits(season)` (`src/data.jl`) refuses `season in TEST_SEASONS`
+unless `allow_test_season=true` is passed explicitly, and `fit_and_forecast`
+(`src/pipeline.jl`) asserts `maximum(data.dates) <= data.origin_date` before
+fitting anything. See [docs/lessons.md](lessons.md) item 9.
+
 ## Data schema (input CSVs in `data/`)
 
 - `flu_data_hhs.csv`: `location, origin_date, wili` — finalized series.

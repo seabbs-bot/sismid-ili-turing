@@ -24,11 +24,15 @@ fit_and_forecast(build_model, data, model_id;
     transform=data.transform) -> (forecast, model, fit, draws)
 ```
 
-`produce_submission` and `round1_run.jl`'s `fit_one_split` both call
-it. If you are writing a new driver (a new round, a new smoke test, a
-one-off diagnostic script), call `fit_and_forecast` — do not write
+`produce_submission`, `run_round.jl`'s `run_candidate`, and
+`round1_run.jl`'s `fit_one_split` all call it now. If you are writing
+a new driver (a new round, a new smoke test, a one-off diagnostic
+script), call `fit_and_forecast` — do not write
 `model = build_model(...); fit = fit_pathfinder(...); ...` yourself.
 If it does not do what you need, extend it or ask; do not fork it.
+Two hard requirements below (coverage, training discipline) are
+enforced INSIDE `fit_and_forecast`/`produce_submission` precisely so
+that forking the sequence silently loses them.
 
 ## 2. ALWAYS use `generated_draws`, never `posterior_draws`, for forecasting
 
@@ -152,3 +156,72 @@ except the explicit `nfidd-base-log` control actually fits on (see
 "favoured default" comment is still current — check
 `PRIMARY_TRANSFORM` / the latest round's `summary.txt` for the
 transform actually in use before adding a new candidate or driver.
+
+## 8. Coverage is a hard requirement, and is never silent
+
+A hub submission must cover all 4 horizons, all 11 locations, and all
+23 quantile levels per task, AND every forecast-origin date the hub
+actually wants for the seasons being submitted. Partial coverage is a
+real failure mode (one bad split, a crash mid-run) and must always be
+reported explicitly, never left to a missing file no one notices.
+
+- `produce_submission` (`src/pipeline.jl`) now catches a per-split
+  fitting failure rather than letting it crash the whole run silently,
+  logs it (`@error`) as an origin date about to go missing, and after
+  every split has been attempted checks the result against the full
+  expected set (every `training_splits(season)` origin date for every
+  requested `season`). With the default `strict=true` it raises an
+  error naming exactly which dates are missing — and `write` never
+  runs in that case, so an incomplete submission is never written into
+  the hub clone. Pass `strict=false` only for a deliberate partial/dev
+  run; it still `@warn`s loudly.
+- `scripts/validate_submission.jl` adds a second, independent layer:
+  `check_coverage` reads the hub's own `hub-config/tasks.json`
+  (`origin_dates`, via `HubConfig`) and this repo's
+  `data/flu_data_hhs_tscv_season<N>.csv` (via `season_origin_dates`,
+  the `SEASONS` env var / `seasons` kwarg picks which), and flags any
+  expected origin date missing from the written files, or present in
+  our own data but absent from the hub's config entirely (a
+  data/hub-config drift signal). `check_horizon_coverage` does the
+  same for horizons within one file (existing `check_locations` /
+  `check_quantile_levels` already covered missing locations and
+  quantile levels per file — `check_horizon_coverage` was the one gap).
+  This runs automatically whenever `validate_submission`/the CLI checks
+  a whole `model_id` (not a single `FILE_PATH`).
+- `scripts/validate_submission.jl` deliberately reimplements a minimal
+  `season_origin_dates` rather than `using SismidILITuring` +
+  `training_splits`: this script runs in its own small, Turing-free
+  environment (`scripts/validate/Project.toml`, no Turing/Mooncake/
+  Pathfinder) specifically so it stays fast, and pulling in the main
+  package would defeat that. If `src/data.jl`'s `training_splits`
+  changes its `.split`-grouping logic, update `season_origin_dates` to
+  match by hand.
+
+## 9. Training discipline (do not cheat) is enforced in code, not just docs
+
+Two rules from docs/brief.md's "Experimental integrity" are now
+mechanically enforced, not just written down:
+
+- **No future/finalized data in a fit.** [`fit_and_forecast`](
+  ../src/pipeline.jl) asserts `maximum(data.dates) <= data.origin_date`
+  before building or fitting anything. Every driver goes through
+  `fit_and_forecast` (see item 1), so this is one gate, not one per
+  driver. [`build_model_data`](../src/data.jl) already guarantees this
+  by construction, so in normal use the assertion never fires — it is
+  a safety net against a future refactor or a hand-built `ModelData`
+  getting this wrong, not something you should ever see trip.
+- **No fitting/selecting on the held-out test seasons.**
+  [`training_splits`](../src/data.jl) is the one place every driver
+  loads training data by season number, and it now refuses `season in
+  TEST_SEASONS` (`(3, 4, 5)`) unless `allow_test_season=true` is
+  passed explicitly — raising an error naming
+  `VALIDATION_SEASONS`/`TEST_SEASONS` rather than quietly returning
+  test-season data. `produce_submission` exposes the same
+  `allow_test_season` kwarg (default `false`), threaded straight
+  through. Only the eventual "select finalists and run test-season
+  forecasts" step (task tracked separately) should ever pass
+  `allow_test_season=true`; if you are adding a new candidate or a new
+  search round, you should never need it. `run_round.jl`'s
+  `load_validation_truth` already had an equivalent guard for the
+  ORACLE (truth) side — this closes the matching gap on the training
+  (input) side.

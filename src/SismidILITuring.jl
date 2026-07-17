@@ -31,7 +31,8 @@ export ModelData, LOCATIONS, QUANTILE_LEVELS, TARGET, HORIZONS,
     to_scale, from_scale
 
 # Data (data.jl)
-export load_series, build_model_data, training_splits
+export load_series, build_model_data, training_splits,
+    VALIDATION_SEASONS, TEST_SEASONS
 
 # Model (model.jl)
 export base_model, model_dims

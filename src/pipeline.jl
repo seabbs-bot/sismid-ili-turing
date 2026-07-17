@@ -10,6 +10,7 @@
 # write_submission / write_metadata (hubio).
 
 using DataFrames
+using Dates
 using Random
 
 """
@@ -42,6 +43,16 @@ the hub table (docs/contracts.md schema); `model`, `fit`, `draws` are
 returned too so a caller that also needs Bayesian-workflow diagnostics
 ([`bayesian_checks`](@ref)) can reuse the same fit and draws rather
 than refitting.
+
+# Training discipline
+
+Asserts `maximum(data.dates) <= data.origin_date` before fitting: `data`
+must never carry training history dated after its own forecast origin,
+or future/finalized values would leak into the fit (docs/contracts.md
+experimental integrity). [`build_model_data`](@ref) guarantees this by
+construction, so this only fires if a caller hand-builds or mutates a
+`ModelData` incorrectly -- it is the last gate every driver passes
+through, so the guard lives here.
 """
 function fit_and_forecast(
     build_model,
@@ -55,6 +66,13 @@ function fit_and_forecast(
     levels=QUANTILE_LEVELS,
     rng::Random.AbstractRNG=Random.default_rng(),
 )
+    max_train_date = maximum(data.dates)
+    discipline_msg = "training discipline violation: data's latest " *
+        "training date ($max_train_date) is AFTER its forecast origin " *
+        "($(data.origin_date)) -- future/finalized data would leak " *
+        "into the fit (docs/contracts.md experimental integrity)"
+    @assert max_train_date <= data.origin_date discipline_msg
+
     model = build_model(data; transform=transform)
     fit = fit_pathfinder(model; ndraws=ndraws, nruns=nruns, rng=rng)
     draws = generated_draws(model, fit)
@@ -67,7 +85,8 @@ end
 """
     produce_submission(; seasons=[1, 2], hub_path=nothing,
         model_id="nfidd-turing", transform=:log1p, Dmax=12, ndraws=200,
-        window_weeks=104, write=false)
+        window_weeks=104, write=false, strict=true,
+        allow_test_season=false)
 
 Build the hub quantile forecast table for the base model across every
 cross-validation split of each season in `seasons`, and (if `write`)
@@ -84,8 +103,23 @@ into one submission.
 Defaults follow the EDA: `transform=:log1p` (wILI has exact zeros) and
 `Dmax=12` (backfill tail is ~10-15 weeks). `window_weeks` caps the
 training history per split (fewer weeks fit faster; the seasonal curve
-wants ~2 seasons). `seasons=[1, 2]` are the validation seasons; the
-held-out test seasons are never touched here.
+wants ~2 seasons). `seasons=[1, 2]` are the validation seasons;
+[`training_splits`](@ref) refuses a test season unless
+`allow_test_season=true` is also passed (only for the locked-finalist
+test-phase step).
+
+# Coverage (never silent)
+
+Every `training_splits(season)` origin date, for every `season` in
+`seasons`, is expected in the result. A split that throws while fitting
+is caught -- so one bad split does not sink the whole run -- and its
+origin date is logged (`@error`) as about to go missing, rather than
+silently dropped. Once every split has been attempted, coverage is
+checked explicitly against that expected set: with the default
+`strict=true`, any missing origin date raises an error naming exactly
+which dates are missing (and `write` never runs, since the error fires
+first); with `strict=false` the same is emitted via `@warn` and the
+partial submission is returned anyway.
 
 If `write`, `hub_path` must be given: [`write_submission`](@ref) writes
 one CSV per origin date under `model-output/<model_id>/` and
@@ -103,19 +137,49 @@ function produce_submission(;
     ndraws::Int=200,
     window_weeks::Int=104,
     write::Bool=false,
+    strict::Bool=true,
+    allow_test_season::Bool=false,
 )
     tables = DataFrame[]
+    expected_origins = Date[]
+    failed_origins = Tuple{Date,String}[]
+
     for season in seasons
-        for split in training_splits(season)
+        splits = training_splits(season; allow_test_season=allow_test_season)
+        for split in splits
+            origin = maximum(split.origin_date)
+            push!(expected_origins, origin)
             data = build_model_data(split; Dmax=Dmax, transform=transform,
                                     window_weeks=window_weeks)
-            result = fit_and_forecast(base_model, data, model_id;
-                                      project=base_project, ndraws=ndraws,
-                                      transform=transform)
-            push!(tables, result.forecast)
+            try
+                result = fit_and_forecast(base_model, data, model_id;
+                                          project=base_project,
+                                          ndraws=ndraws, transform=transform)
+                push!(tables, result.forecast)
+            catch err
+                push!(failed_origins, (origin, sprint(showerror, err)))
+                @error "produce_submission: split failed; its origin " *
+                       "date will be MISSING from the submission" origin err
+            end
         end
     end
+
+    if isempty(tables)
+        first_err = isempty(failed_origins) ? "n/a" : failed_origins[1][2]
+        error("produce_submission: every split failed; no forecasts " *
+              "were produced. First error: $first_err")
+    end
     submission = reduce(vcat, tables)
+
+    expected = sort(unique(expected_origins))
+    produced = sort(unique(submission.origin_date))
+    missing_dates = setdiff(expected, produced)
+    if !isempty(missing_dates)
+        msg = "produce_submission: MISSING forecasts for " *
+              "$(length(missing_dates))/$(length(expected)) expected " *
+              "origin_date(s): $missing_dates"
+        strict ? error(msg) : @warn msg
+    end
 
     if write
         hub_path === nothing &&

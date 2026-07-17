@@ -10,6 +10,14 @@ using Dates
 
 const DATA_DIR = joinpath(@__DIR__, "..", "data")
 
+"""Season numbers used to tune and select models (docs/brief.md,
+docs/contracts.md experimental integrity)."""
+const VALIDATION_SEASONS = (1, 2)
+
+"""Season numbers held out until finalists are locked (docs/brief.md,
+docs/contracts.md experimental integrity)."""
+const TEST_SEASONS = (3, 4, 5)
+
 """
     load_series(name)::DataFrame
 
@@ -35,13 +43,33 @@ function load_series(name::AbstractString)::DataFrame
 end
 
 """
-    training_splits(season::Int)::Vector{DataFrame}
+    training_splits(season::Int; allow_test_season=false)::Vector{DataFrame}
 
 Split `DataFrame`s for `flu_data_hhs_tscv_season<season>.csv`, one per
 forecast origin, ordered by ascending forecast origin (`max(origin_date)`
 within the split). Splits are identified by the `.split` column.
+
+Experimental integrity guard (docs/brief.md, docs/contracts.md): `season`
+in [`TEST_SEASONS`](@ref) is refused unless `allow_test_season=true` is
+passed explicitly. Tuning and model selection use only
+[`VALIDATION_SEASONS`](@ref); the test seasons are held out until the
+finalists are locked, and this is the one place every caller in this
+package goes through to load training data by season, so the guard lives
+here rather than in each driver separately.
 """
-function training_splits(season::Int)::Vector{DataFrame}
+function training_splits(
+    season::Int; allow_test_season::Bool=false,
+)::Vector{DataFrame}
+    if season in TEST_SEASONS && !allow_test_season
+        error(
+            "training_splits($season): season $season is a HELD-OUT " *
+            "test season ($(TEST_SEASONS)). Tuning and selection use " *
+            "only the validation seasons $(VALIDATION_SEASONS) " *
+            "(docs/brief.md, docs/contracts.md experimental integrity). " *
+            "Pass allow_test_season=true only in the final, locked-" *
+            "finalist test-phase step.",
+        )
+    end
     df = load_series("flu_data_hhs_tscv_season$(season)")
     groups = groupby(df, ".split")
     splits = [DataFrame(g) for g in groups]

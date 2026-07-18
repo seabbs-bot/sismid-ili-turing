@@ -1,13 +1,21 @@
 # sismid-ili-turing
 
-Hierarchical Bayesian forecasting of weighted influenza-like illness (wILI%)
-for the SISMID reichlab sandbox hub, built in Julia with Turing.jl.
+Forecasting of weighted influenza-like illness (wILI%) for the SISMID reichlab
+sandbox hub, in Julia.
 
-The model partially pools information across the 11 US/HHS locations, learns
-seasonality as a random-effect structure that varies by location and season,
-adds autoregressive dynamics, and jointly models reporting backfill.
-Candidate formulations are searched, scored by the weighted interval score
-(WIS), and the best are submitted to the online hub.
+Two tracks were developed in parallel:
+
+- A fast **analytic search** (per-location regression: seasonal climatology +
+  AR + reporting-backfill correction, scored by the weighted interval score)
+  that carried the model rounds and produced every submitted forecaster.
+- A joint **Bayesian model in Turing.jl** (`src/`: partial pooling across the
+  11 locations, random-effect seasonality, AR dynamics, joint non-monotonic
+  backfill). Its infrastructure is complete and fits via Pathfinder + Mooncake,
+  but it did **not** reach competitive accuracy — see the conclusions below and
+  [`docs/turing-value.md`](docs/turing-value.md).
+
+See **[Results and conclusions](#results-and-conclusions)** for what mattered,
+what didn't, and how it held up out of sample.
 
 ## Goal
 
@@ -42,17 +50,79 @@ Read these in order.
 A Documenter site (see `docs/infrastructure.md`) will render the Julia API
 docs and link all of the above in one nav.
 
-## Status
+## Results and conclusions
 
-Phase 0 (setup) and Phase 1 (machinery) are done.
-The base model fits via Pathfinder and Mooncake, and the full
-fit -> forecast -> score pipeline has run end to end on real data
-(a season-1 validation split, all 11 locations), producing a valid
-11x4x23 hub table with mean WIS ~0.29.
-Phase 2 (tree search) is in progress: Round 1 runs five variants
-(`v1-ar-high`, `v2-mvn-season`, `v3-diff`, `v4-tv-ar`, `v5-backfill`)
-through a resilient round-runner engine.
-See [`docs/plan.md`](docs/plan.md) for the full phase checklist.
+Selection used the **validation seasons only** (2015/16, 2016/17). The three
+test seasons (2017/18–2019/20) were scored **once, after the models were
+locked**, as a held-out check ([`reports/test-evaluation.md`](reports/test-evaluation.md)) —
+never used to select or tune. All WIS below is leak-free (seasonal and backfill
+profiles rebuilt per forecast origin from strictly-prior data; the leak-free
+builders live in `src/seasonal.jl`).
+
+### Leaderboard (leak-free mean WIS, lower is better)
+
+| Model | Validation | Test | Test cov 50/90 |
+|---|---|---|---|
+| `nfidd-ar6` (plain AR, baseline) | 0.368 | 0.623 | .42 / .76 |
+| `nfidd-ar6bf` (+ backfill) | 0.359 | 0.621 | .41 / .75 |
+| `seabbs_bot-season` (+ seasonality) | 0.300 | 0.550 | .38 / .72 |
+| **`seasstack`** (+ log + Student-t + pooling) | 0.289 | **0.464** | .54 / .89 |
+| `conformal-pooled` (+ window-208 + width) | **0.273** | 0.481 | .48 / .88 |
+| hist-avg (hub baseline, external) | — | 0.922 | .36 / .83 |
+
+All our models beat the hub's `hist-avg` baseline by a wide margin. Test WIS is
+uniformly higher than validation because the test seasons are harder (season
+2019/20's long-horizon targets fall in March–May 2020, coincident with COVID-19
+disrupting US ILI surveillance — flagged as a confound, not a causal claim).
+
+### What mattered
+- **A regularised seasonal signal** — the biggest and most *transferable* lever
+  (~16% on validation, ~11% on test). A smoothed week-of-season climatology
+  borrowed from all history; naive per-location Fourier overfit and hurt.
+- **Longer AR memory** (208 weeks ≈ 4 seasons) — the biggest late-stage lever on
+  validation; helps every horizon, most at h3/h4.
+- **Calibrated intervals** — Student-t / split-conformal / per-location width
+  scaling; small WIS gain, large calibration gain (41%/78% → near-nominal).
+- **Log transform** and **modest AR-coefficient pooling** — small but real.
+
+### What didn't
+- **The *pooled* seasonal shape** vs per-location — a wash once scored honestly.
+- **Time-varying AR** — clean negative, three independent mechanisms.
+- **Susceptible-depletion / Rt-renewal** — net loss, failing hardest exactly
+  where predicted to help; a Bayesian-only candidate (`docs/turing-value.md`).
+- **Within-season severity/phase adaptation, bias correction, differencing,
+  VAR, AR order > 6, ensembles** — neutral-to-negative.
+
+### What the held-out test taught us
+- **Validation ranking did not fully hold.** `conformal-pooled` (best on
+  validation) and `seasstack` **swapped** — on test the *simpler* `seasstack`
+  wins. The window-208 + width tuning that topped validation was partly
+  validation-overfit; its 5.6% validation edge was noise. **`seasstack` is the
+  most defensible single best model.**
+- **Backfill's edge was 2-season-specific** — +2.6% on validation, +0.3% on
+  test. Seasonality, by contrast, transferred strongly.
+- **The meta-lesson**: robust, well-regularised structure generalises; finely
+  tuned structure and low-data mechanistic terms do not. The ideas that failed
+  all share a cause — too many parameters for two seasons — which is precisely
+  the case for propagated uncertainty and partial pooling in a Bayesian model.
+
+### The Bayesian (Turing) model — honest status
+The joint Turing model — the original goal — is **infrastructure-complete but
+not competitive**. It fits (Pathfinder + Mooncake, FlexiChains) and forecasts,
+and a full round-1 Turing sweep ran, but scored ~1.2–1.3 WIS (3–5× worse than
+the analytic models) from prior-predictive/calibration problems, so no Turing
+model was a finalist or entered the test evaluation.
+[`docs/turing-value.md`](docs/turing-value.md) specifies what a Bayesian model
+should target to earn its complexity (propagated nowcast/backfill uncertainty,
+learned hierarchical pooling, mechanistic terms *with* uncertainty) — the
+unfinished next phase.
+
+### Integrity
+Selection was validation-only throughout. A mid-project data leak (seasonal and
+backfill profiles built once from `season_year ≤ 2016`, exposing validation-
+season future weeks) was found, fixed at the root (`src/seasonal.jl`), and every
+number was rebaselined leak-free; the two already-merged hub submissions'
+residual leakage is documented in [`submissions/README.md`](submissions/README.md).
 
 ## Repository layout
 

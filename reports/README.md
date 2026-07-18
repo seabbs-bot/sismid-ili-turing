@@ -12,3 +12,8 @@ Name reports `NN-short-slug.md` (e.g. `01-base-model.md`), numbered in order.
 | Loop | Report | Candidates | Best WIS | Best WIS SD | Decision |
 |---|---|---|---|---|---|
 | _none yet_ | | | | | |
+
+`test-evaluation.md` is not a search loop: it is the held-out
+TEST-SEASON (3-5) evaluation of the already-locked finalists from the
+validation-only search above, reporting rather than selecting.
+See [`test-evaluation.md`](test-evaluation.md).
